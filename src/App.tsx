@@ -3,7 +3,9 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+// ⬇️ CHANGED: use HashRouter instead of BrowserRouter
+import { HashRouter as Router, Routes, Route } from "react-router-dom";
+
 import Landing from "./pages/Landing";
 import NotFound from "./pages/NotFound";
 
@@ -30,7 +32,9 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      <BrowserRouter>
+
+      {/* ⬇️ CHANGED: wrap routes in <Router> (HashRouter) */}
+      <Router>
         <Suspense fallback={<RouteFallback />}>
           <Routes>
             <Route path="/" element={<Landing />} />
@@ -46,7 +50,8 @@ const App = () => (
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
-      </BrowserRouter>
+      </Router>
+
       <Suspense fallback={null}>
         <ChatSupportWidget />
       </Suspense>
