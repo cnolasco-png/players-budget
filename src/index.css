@@ -1,0 +1,123 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 222.2 84% 4.9%;
+  --card: 0 0% 100%;
+  --card-foreground: 222.2 84% 4.9%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222.2 84% 4.9%;
+  --primary: 212 86% 55%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222.2 47.4% 11.2%;
+  --muted: 210 40% 96.1%;
+  --muted-foreground: 215.4 16.3% 46.9%;
+  --accent: 45 93% 47%;
+  --accent-foreground: 25 85% 16%;
+  --destructive: 0 84.2% 60.2%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 214.3 31.8% 91.4%;
+  --input: 214.3 31.8% 91.4%;
+  --ring: 212 86% 55%;
+  --radius: 0.75rem;
+
+  --sidebar-background: 210 40% 98%;
+  --sidebar-foreground: 222.2 47.4% 11.2%;
+  --sidebar-primary: 212 86% 55%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 210 40% 96.1%;
+  --sidebar-accent-foreground: 222.2 47.4% 11.2%;
+  --sidebar-border: 214.3 31.8% 91.4%;
+  --sidebar-ring: 212 86% 55%;
+}
+
+.dark {
+  --background: 224 71% 4%;
+  --foreground: 210 20% 98%;
+  --card: 224 71% 4%;
+  --card-foreground: 210 20% 98%;
+  --popover: 224 71% 4%;
+  --popover-foreground: 210 20% 98%;
+  --primary: 212 86% 55%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 215 27% 16%;
+  --secondary-foreground: 210 20% 98%;
+  --muted: 215 27% 16%;
+  --muted-foreground: 217 33% 80%;
+  --accent: 45 93% 47%;
+  --accent-foreground: 24 88% 14%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 210 20% 98%;
+  --border: 215 27% 16%;
+  --input: 215 27% 16%;
+  --ring: 212 86% 55%;
+
+  --sidebar-background: 224 71% 4%;
+  --sidebar-foreground: 210 20% 98%;
+  --sidebar-primary: 212 86% 55%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 215 27% 16%;
+  --sidebar-accent-foreground: 210 20% 98%;
+  --sidebar-border: 215 27% 16%;
+  --sidebar-ring: 212 86% 55%;
+}
+
+body {
+  @apply bg-background text-foreground antialiased;
+}
+
+h1 {
+  @apply text-4xl font-extrabold tracking-tight sm:text-5xl;
+}
+
+.gradient-hero {
+  background-image: radial-gradient(circle at top left, rgba(59, 130, 246, 0.15), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(249, 115, 22, 0.15), transparent 45%),
+    linear-gradient(180deg, hsl(var(--background)), hsl(var(--background)) 50%, hsl(var(--muted)) 100%);
+}
+
+.gradient-primary {
+  background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--accent)) 100%);
+}
+
+.gradient-gold {
+  background: linear-gradient(135deg, #facc15 0%, #f97316 100%);
+}
+
+.shadow-card {
+  box-shadow: 0px 20px 45px -15px rgba(15, 23, 42, 0.25);
+}
+
+.shadow-elegant {
+  box-shadow: 0px 30px 60px -20px rgba(15, 23, 42, 0.35);
+}
+
+.hover-lift {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hover-lift:hover {
+  transform: translateY(-6px);
+  box-shadow: 0px 30px 60px -30px rgba(15, 23, 42, 0.45);
+}
+
+.table-grid {
+  border-collapse: separate;
+  border-spacing: 0 0.75rem;
+}
+
+.table-grid th,
+.table-grid td {
+  @apply px-4 py-3 align-middle;
+}
+
+.table-grid tbody tr {
+  @apply bg-card transition-shadow border border-border rounded-xl shadow-sm;
+}
+
+.table-grid tbody tr:hover {
+  @apply shadow-lg;
+}
