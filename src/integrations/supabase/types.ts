@@ -95,34 +95,43 @@ export type Database = {
       }
       expense_entries: {
         Row: {
-          amount: number
-          budget_id: string | null
-          category: string
-          created_at: string
-          currency: string
           id: string
-          note: string | null
+          created_at: string
           user_id: string
+          budget_id: string | null
+          scenario_id: string | null
+          date: string
+          category: string
+          label: string | null
+          amount: number
+          currency: string
+          notes: string | null
         }
         Insert: {
-          amount: number
-          budget_id?: string | null
-          category: string
-          created_at?: string
-          currency?: string
           id?: string
-          note?: string | null
+          created_at?: string
           user_id: string
+          budget_id?: string | null
+          scenario_id?: string | null
+          date: string
+          category: string
+          label?: string | null
+          amount: number
+          currency?: string
+          notes?: string | null
         }
         Update: {
-          amount?: number
-          budget_id?: string | null
-          category?: string
-          created_at?: string
-          currency?: string
           id?: string
-          note?: string | null
+          created_at?: string
           user_id?: string
+          budget_id?: string | null
+          scenario_id?: string | null
+          date?: string
+          category?: string
+          label?: string | null
+          amount?: number
+          currency?: string
+          notes?: string | null
         }
         Relationships: [
           {
@@ -137,6 +146,13 @@ export type Database = {
             columns: ["user_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "expense_entries_scenario_id_fkey"
+            columns: ["scenario_id"]
+            isOneToOne: false
+            referencedRelation: "scenarios"
             referencedColumns: ["id"]
           },
         ]
@@ -391,6 +407,41 @@ export type Database = {
           },
         ]
       }
+      feedback: {
+        Row: {
+          id: string
+          created_at: string
+          user_id: string | null
+          email: string | null
+          topic: string | null
+          message: string
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          email?: string | null
+          topic?: string | null
+          message: string
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          user_id?: string | null
+          email?: string | null
+          topic?: string | null
+          message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "feedback_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       tax_rates: {
         Row: {
           country: string
@@ -441,7 +492,7 @@ export type Tables<
   }
     ? keyof (DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Tables"] &
         DatabaseWithoutInternals[DefaultSchemaTableNameOrOptions["schema"]]["Views"])
-    : never = never,
+    : never,
 > = DefaultSchemaTableNameOrOptions extends {
   schema: keyof DatabaseWithoutInternals
 }

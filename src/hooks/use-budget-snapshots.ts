@@ -1,7 +1,7 @@
 import { useCallback } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 import type {
   BudgetRecord,
   ScenarioRecord,
@@ -10,7 +10,7 @@ import type {
 } from "@/hooks/use-budget-data";
 import { calculateScenarioTotals } from "@/lib/budgetCalculations";
 
-export type BudgetSnapshotRecord = Tables<"budget_snapshots">;
+export type BudgetSnapshotRecord = Database["public"]["Tables"]["budget_snapshots"]["Row"];
 
 export interface BudgetSnapshotPayload {
   budget: BudgetRecord;
@@ -93,8 +93,8 @@ async function createBudgetSnapshot(input: CreateSnapshotInput) {
     budget_id: budget.id,
     user_id: budget.user_id,
     note: note?.trim() || null,
-    snapshot_data: payload,
-    scenario_totals: scenarioTotals,
+    snapshot_data: payload as any,
+    scenario_totals: scenarioTotals as any,
     spend_total: spendTotal,
     income_total: incomeTotal,
   });

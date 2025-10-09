@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import BudgetEditor from "@/components/editor/BudgetEditor";
 import BudgetSnapshots from "@/components/editor/BudgetSnapshots";
 import IncomeManager from "@/components/editor/IncomeManager";
+import ExpenseManager from "@/components/editor/ExpenseManager";
 import LineItemImporter, { type ImportRow } from "@/components/editor/LineItemImporter";
 import {
   useBudgetData,
@@ -16,6 +17,10 @@ import {
   useIncomeUpdater,
   useLineItemCreator,
   useLineItemUpdater,
+  useExpenseCreator,
+  useExpenseUpdater,
+  useExpenseRemover,
+  useExpenses,
 } from "@/hooks/use-budget-data";
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
 import { ClipboardEdit, ArrowLeft, Calculator } from "lucide-react";
@@ -29,6 +34,7 @@ const Editor = () => {
   const [shouldRetryUpdate, setShouldRetryUpdate] = useState(false);
   const [shouldRetryCreate, setShouldRetryCreate] = useState(false);
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -55,6 +61,13 @@ const Editor = () => {
   const incomeCreator = useIncomeCreator(selectedBudgetId);
   const incomeUpdater = useIncomeUpdater(selectedBudgetId);
   const incomeRemover = useIncomeRemover(selectedBudgetId);
+  const expenseCreator = useExpenseCreator(selectedBudgetId);
+  const expenseUpdater = useExpenseUpdater(selectedBudgetId);
+  const expenseRemover = useExpenseRemover(selectedBudgetId);
+
+  const isCreatingLineItems = Boolean((creator as any)?.isLoading);
+  const incomeSubmitting = Boolean((incomeCreator as any)?.isLoading || (incomeUpdater as any)?.isLoading || (incomeRemover as any)?.isLoading);
+  const expenseSubmitting = Boolean((expenseCreator as any)?.isLoading || (expenseUpdater as any)?.isLoading || (expenseRemover as any)?.isLoading);
 
   const scenarioTotals = useMemo(() => {
     if (!budgetData) return [];
@@ -215,6 +228,18 @@ const Editor = () => {
     }
   };
 
+  const openParam = searchParams.get('open');
+  const openExpenseDialog = openParam === 'expenses';
+
+  // clear the query param after reading so it doesn't re-open on navigation
+  useEffect(() => {
+    if (openExpenseDialog) {
+      const next = new URLSearchParams(searchParams);
+      next.delete('open');
+      setSearchParams(next, { replace: true });
+    }
+  }, [openExpenseDialog]);
+
   return (
     <div className="min-h-screen gradient-hero">
       <header className="border-b bg-card/60 backdrop-blur-sm">
@@ -297,7 +322,7 @@ const Editor = () => {
             currency={budgetData.budget.base_currency}
             onUpdateLineItem={handleUpdate}
             onAddLineItem={handleCreate}
-            isSaving={creator.isLoading}
+            isSaving={isCreatingLineItems}
           />
         )}
         {!isLoading && budgetData && (
@@ -315,7 +340,48 @@ const Editor = () => {
             onCreate={handleIncomeCreate}
             onUpdate={handleIncomeUpdate}
             onDelete={handleIncomeDelete}
-            isSubmitting={incomeCreator.isLoading || incomeUpdater.isLoading || incomeRemover.isLoading}
+            isSubmitting={incomeSubmitting}
+          />
+        )}
+        {!isLoading && budgetData && (
+          <ExpenseManager
+            expenses={useExpenses(budgetData.budget.id).data ?? []}
+            openNow={openExpenseDialog}
+            currency={budgetData.budget.base_currency}
+            onCreate={async (payload) => {
+              try {
+                await expenseCreator.mutateAsync({
+                  ...payload,
+                  budget_id: budgetData.budget.id,
+                  scenario_id: undefined,
+                  user_id: userId ?? "",
+                  created_at: new Date().toISOString(),
+                } as any);
+                toast({ title: "Expense added", description: "Saved to your expense log." });
+              } catch (err: any) {
+                console.error("Failed to add expense", err);
+                toast({ title: "Could not add expense", description: err.message, variant: "destructive" });
+              }
+            }}
+            onUpdate={async (id, payload) => {
+              try {
+                await expenseUpdater.mutateAsync({ id, ...payload } as any);
+                toast({ title: "Expense updated" });
+              } catch (err: any) {
+                console.error("Failed to update expense", err);
+                toast({ title: "Could not update expense", description: err.message, variant: "destructive" });
+              }
+            }}
+            onDelete={async (id) => {
+              try {
+                await expenseRemover.mutateAsync(id as any);
+                toast({ title: "Expense deleted" });
+              } catch (err: any) {
+                console.error("Failed to delete expense", err);
+                toast({ title: "Could not delete expense", description: err.message, variant: "destructive" });
+              }
+            }}
+            isSubmitting={expenseSubmitting}
           />
         )}
         {!isLoading && budgetData && (

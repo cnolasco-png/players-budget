@@ -11,19 +11,16 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency } from "@/lib/budgetCalculations";
+import { getEffectiveTaxPct } from "@/lib/tax";
 import { Loader2, LogOut, Settings as SettingsIcon, ExternalLink } from "lucide-react";
-import type { Tables } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 
 const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 
-type FeedbackInsert = {
-  message: string;
-  email?: string | null;
-  topic?: string | null;
-  user_id?: string | null;
-};
+// Prefer generated insert type for `feedback` table (from supabase types)
+type FeedbackInsert = Database["public"]["Tables"]["feedback"]["Insert"];
 
-type ExpenseEntryRecord = Tables<"expense_entries">;
+type ExpenseEntryRecord = any;
 
 type BudgetSummary = {
   id: string;
@@ -49,6 +46,24 @@ const Settings = () => {
     plan: "free",
   });
 
+  // New: local plan stored in localStorage (free | pro)
+  const [localPlan, setLocalPlan] = useState<'free' | 'pro'>(() => {
+    try {
+      const v = localStorage.getItem('plan');
+      return v === 'pro' ? 'pro' : 'free';
+    } catch (e) {
+      return 'free';
+    }
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('plan', localPlan);
+    } catch (e) {
+      // ignore
+    }
+  }, [localPlan]);
+
   const [feedbackState, setFeedbackState] = useState({
     topic: "",
     message: "",
@@ -67,6 +82,10 @@ const Settings = () => {
     currency: "USD",
     note: "",
   });
+  // Tax UI state
+  const [competitionLevel, setCompetitionLevel] = useState<'ITF'|'Challenger'|'ATP/WTA'>('ITF');
+  const [effectiveTaxPct, setEffectiveTaxPct] = useState<number | null>(null);
+  const [manualTaxOverride, setManualTaxOverride] = useState<number | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
@@ -189,11 +208,24 @@ const Settings = () => {
     loadProfile();
   }, [userId, loadProfile]);
 
+  // when budget selection or competition changes, compute effective tax
   useEffect(() => {
-    if (!userId) return;
-    loadBudgets();
-    loadExpenseEntries();
-  }, [userId, loadBudgets, loadExpenseEntries]);
+    const load = async () => {
+      if (!expenseForm.budgetId) return;
+      try {
+        // fetch budget to get country and fallback tax_pct
+        const { data: budget } = await supabase.from('budgets').select('tax_country, tax_pct').eq('id', expenseForm.budgetId).maybeSingle();
+        const country = budget?.tax_country ?? 'US';
+        const year = new Date().getFullYear();
+        const pct = await getEffectiveTaxPct(country, competitionLevel, year);
+        setEffectiveTaxPct(pct);
+        setManualTaxOverride(null);
+      } catch (e) {
+        console.debug('Failed to load effective tax', e);
+      }
+    };
+    load();
+  }, [expenseForm.budgetId, competitionLevel]);
 
   const planLabel = useMemo(() => {
     if (!profile.plan) return "Free";
@@ -296,6 +328,18 @@ const Settings = () => {
     });
   };
 
+  const handleSaveBudgetTax = async (pct: number) => {
+    if (!expenseForm.budgetId) return;
+    try {
+      const { error } = await supabase.from('budgets').update({ tax_pct: pct }).eq('id', expenseForm.budgetId);
+      if (error) throw error;
+      toast({ title: 'Budget tax updated' });
+    } catch (e) {
+      console.error('Failed to save budget tax', e);
+      toast({ title: 'Save failed', description: 'Could not save tax percentage', variant: 'destructive' });
+    }
+  };
+
   const handleExpenseSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!userId) {
@@ -327,15 +371,17 @@ const Settings = () => {
 
     setExpenseSaving(true);
     try {
+      const today = new Date().toISOString().substring(0, 10);
       const { data, error } = await supabase
         .from("expense_entries")
         .insert({
           user_id: userId,
           budget_id: expenseForm.budgetId || null,
+          date: today,
           category: expenseForm.category.trim(),
           amount: amountValue,
           currency: expenseForm.currency.trim().toUpperCase(),
-          note: expenseForm.note.trim() ? expenseForm.note.trim() : null,
+          notes: expenseForm.note.trim() ? expenseForm.note.trim() : null,
         })
         .select()
         .single();
@@ -388,7 +434,8 @@ const Settings = () => {
     };
 
     try {
-      const { error } = await supabase.from("feedback").insert(payload);
+      // Cast the payload to any if types are missing — keeps the supabase client typed when possible
+      const { error } = await supabase.from("feedback").insert(payload as any);
 
       if (error) {
         throw error;
@@ -447,6 +494,34 @@ const Settings = () => {
       </header>
 
       <main className="container mx-auto max-w-5xl px-4 py-8 space-y-8">
+        {/* New: Plan selector stored in localStorage and Environment check */}
+        <Card className="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold">Plan (local)</h2>
+              <p className="text-sm text-muted-foreground">Toggle a demo plan stored in your browser (localStorage.plan).</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <Button onClick={() => setLocalPlan('free')} variant={localPlan === 'free' ? 'gold' : 'outline'}>Free</Button>
+            <Button onClick={() => setLocalPlan('pro')} variant={localPlan === 'pro' ? 'gold' : 'outline'}>Pro</Button>
+            <div className="ml-4 text-sm text-muted-foreground">Current: <strong className="ml-1">{localPlan}</strong></div>
+          </div>
+
+          <div className="mt-4">
+            <h3 className="text-sm font-semibold">Environment check</h3>
+            <div className="flex flex-col gap-2 mt-2 text-sm">
+              <div className={import.meta.env.VITE_SUPABASE_URL ? 'text-green-500' : 'text-destructive'}>
+                {import.meta.env.VITE_SUPABASE_URL ? '✓ VITE_SUPABASE_URL set' : '✗ VITE_SUPABASE_URL missing'}
+              </div>
+              <div className={import.meta.env.VITE_SUPABASE_ANON_KEY ? 'text-green-500' : 'text-destructive'}>
+                {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ VITE_SUPABASE_ANON_KEY set' : '✗ VITE_SUPABASE_ANON_KEY missing'}
+              </div>
+            </div>
+          </div>
+        </Card>
+
         {profileRetry && (
           <div className="flex items-center justify-between rounded-xl border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive">
             <span>We couldn't sync your profile. Check your connection and try again.</span>

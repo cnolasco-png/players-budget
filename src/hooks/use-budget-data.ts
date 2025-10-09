@@ -1,14 +1,16 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import type { Tables, TablesInsert } from "@/integrations/supabase/types";
+import type { Database } from "@/integrations/supabase/types";
 
-export type BudgetRecord = Tables<"budgets">;
-export type ScenarioRecord = Tables<"scenarios">;
-export type LineItemRecord = Tables<"line_items">;
-export type IncomeRecord = Tables<"income_sources">;
-export type CategoryRecord = Tables<"line_item_categories">;
-export type LineItemInsert = TablesInsert<"line_items">;
-export type IncomeInsert = TablesInsert<"income_sources">;
+export type BudgetRecord = Database["public"]["Tables"]["budgets"]["Row"];
+export type ScenarioRecord = Database["public"]["Tables"]["scenarios"]["Row"];
+export type LineItemRecord = Database["public"]["Tables"]["line_items"]["Row"];
+export type IncomeRecord = Database["public"]["Tables"]["income_sources"]["Row"];
+export type CategoryRecord = Database["public"]["Tables"]["line_item_categories"]["Row"];
+export type LineItemInsert = Database["public"]["Tables"]["line_items"]["Insert"];
+export type IncomeInsert = Database["public"]["Tables"]["income_sources"]["Insert"];
+export type ExpenseRecord = Database["public"]["Tables"]["expense_entries"]["Row"];
+export type ExpenseInsert = Database["public"]["Tables"]["expense_entries"]["Insert"];
 
 export interface BudgetData {
   budget: BudgetRecord;
@@ -133,6 +135,31 @@ async function deleteIncome(id: string) {
   if (error) throw error;
 }
 
+async function createExpense(input: ExpenseInsert) {
+  const payload = { ...input };
+  const { data, error } = await supabase.from("expense_entries").insert(payload).select().single();
+  if (error) throw error;
+  return data;
+}
+
+async function updateExpense(input: Partial<ExpenseRecord> & { id: string }) {
+  const { id, ...values } = input;
+  const { data, error } = await supabase
+    .from("expense_entries")
+    .update(values)
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+async function deleteExpense(id: string) {
+  const { error } = await supabase.from("expense_entries").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export function useBudgetList(userId?: string) {
   return useQuery({
     queryKey: ["budgets", userId],
@@ -244,5 +271,87 @@ export function useIncomeRemover(budgetId?: string) {
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
     },
+  });
+}
+
+export function useExpenseCreator(budgetId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: createExpense,
+    onSuccess: async (_data, variables) => {
+      const b = (variables as any).budget_id ?? budgetId;
+      await queryClient.invalidateQueries({ queryKey: ["budget-data", b] });
+    },
+  });
+}
+
+export function useExpenseUpdater(budgetId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: updateExpense,
+    onMutate: async (newValues) => {
+      await queryClient.cancelQueries({ queryKey: ["budget-data", budgetId] });
+      const previousData = queryClient.getQueryData(["budget-data", budgetId]);
+
+      queryClient.setQueryData(["budget-data", budgetId], (old: any) => {
+        if (!old) return old;
+        return {
+          ...old,
+          // reflect change in expense list if present
+          // expenses are not part of budget-data by default; we still invalidate after
+        };
+      });
+
+      return { previousData };
+    },
+    onError: (_error, _values, context) => {
+      if (context?.previousData) {
+        queryClient.setQueryData(["budget-data", budgetId], context.previousData);
+      }
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+    },
+  });
+}
+
+export function useExpenseRemover(budgetId?: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: deleteExpense,
+    onSuccess: async (_data, variables) => {
+      await queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+    },
+  });
+}
+
+// Fetch expenses for a budget, optional month filter in YYYY-MM format
+export async function fetchExpenses(budgetId?: string, month?: string | null) {
+  if (!budgetId) return [];
+
+  let query = supabase.from('expense_entries').select('*').eq('budget_id', budgetId).order('date', { ascending: false });
+
+  if (month) {
+    // month expected as YYYY-MM
+    const start = `${month}-01`;
+    const [y, m] = month.split('-').map((s) => Number(s));
+    const next = new Date(y, m, 1);
+    const nextMonth = next.toISOString().substring(0, 10);
+    query = query.gte('date', start).lt('date', nextMonth);
+  }
+
+  const { data, error } = await query;
+  if (error) throw error;
+  return data ?? [];
+}
+
+export function useExpenses(budgetId?: string, month?: string | null) {
+  return useQuery({
+    queryKey: ['expenses', budgetId, month],
+    queryFn: () => fetchExpenses(budgetId, month),
+    enabled: Boolean(budgetId),
   });
 }

@@ -1,4 +1,5 @@
-import { forwardRef, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { forwardRef, useEffect, useMemo, useRef, useState, useCallback, type KeyboardEvent } from "react";
+import { debounce } from "@/utils/debounce";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import type { CategoryRecord, LineItemInsert, LineItemRecord, ScenarioRecord } f
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
 import { cn } from "@/lib/utils";
 import { TableVirtuoso, type TableVirtuosoHandle } from "react-virtuoso";
+import { useToast } from "@/hooks/use-toast";
 
 interface BudgetEditorProps {
   scenarios: ScenarioRecord[];
@@ -70,6 +72,8 @@ const BudgetEditor = ({
     currency,
   });
   const [draftLineItems, setDraftLineItems] = useState<Record<string, Partial<LineItemRecord>>>({});
+  const [savedStatus, setSavedStatus] = useState<Record<string, { ok: boolean; message?: string }>>({});
+  const { toast } = useToast();
   const cellRefs = useRef<Record<string, Partial<Record<CellKey, HTMLElement | null>>>>({});
   const pendingFocusRef = useRef<{ scenarioId: string; rowIndex: number; cellIndex: number } | null>(null);
   const virtuosoRefs = useRef<Record<string, TableVirtuosoHandle | null>>({});
@@ -134,6 +138,34 @@ const BudgetEditor = ({
       };
     });
   };
+
+  // debounced autosave helper (defined before renderRowCells)
+  const debouncedSaveRef = useRef<Record<string, (payload: Partial<LineItemRecord>) => void>>({});
+
+  const scheduleDebouncedSave = useCallback((id: string, patch: Partial<LineItemRecord>) => {
+    if (!debouncedSaveRef.current[id]) {
+      debouncedSaveRef.current[id] = debounce(async (payload: Partial<LineItemRecord>) => {
+        try {
+          await onUpdateLineItem({ id, ...payload } as Partial<LineItemRecord> & { id: string });
+          setSavedStatus((prev) => ({ ...prev, [id]: { ok: true } }));
+          try { toast({ title: "Saved" }); } catch {}
+        } catch (err: any) {
+          setSavedStatus((prev) => ({ ...prev, [id]: { ok: false, message: err?.message ?? "Save failed" } }));
+        }
+        // clear success after a short delay
+        setTimeout(() => {
+          setSavedStatus((prev) => {
+            if (prev[id]?.ok) {
+              const { [id]: _omit, ...rest } = prev;
+              return rest;
+            }
+            return prev;
+          });
+        }, 1500);
+      }, 500);
+    }
+    debouncedSaveRef.current[id](patch);
+  }, [onUpdateLineItem, toast]);
 
   useEffect(() => {
     const itemIds = new Set(lineItems.map((item) => item.id));
@@ -415,11 +447,14 @@ const BudgetEditor = ({
             value={qty}
             ref={registerCellRef(item.id, "qty")}
             onChange={(event) => {
-              const value = Number(event.target.value) || 0;
-              setDraftValue(item.id, "qty", value);
+              // sanitize to non-negative number
+              const raw = event.target.value;
+              const numeric = Math.max(0, Number(raw) || 0);
+              setDraftValue(item.id, "qty", numeric);
+              scheduleDebouncedSave(item.id, { qty: numeric });
             }}
             onBlur={async (event) => {
-              const value = Number(event.target.value) || 0;
+              const value = Math.max(0, Number(event.target.value) || 0);
               const original = originalItem.qty ?? 1;
               if (value === original) {
                 clearDraftValue(item.id, "qty");
@@ -429,6 +464,11 @@ const BudgetEditor = ({
               setDraftValue(item.id, "qty", value);
               try {
                 await onUpdateLineItem({ id: item.id, qty: value });
+                // show saved toast
+                toast({ title: "Saved" });
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: true } }));
+              } catch (err: any) {
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message: err?.message ?? 'Save failed' } }));
               } finally {
                 clearDraftValue(item.id, "qty");
                 resolvePendingFocus();
@@ -444,6 +484,9 @@ const BudgetEditor = ({
               handleDirectionalNavigation(event, scenarioId, rowIndex, getCellIndex("qty"));
             }}
           />
+          {savedStatus[item.id] && !savedStatus[item.id].ok ? (
+            <div className="text-destructive text-xs mt-1">{savedStatus[item.id].message}</div>
+          ) : null}
         </TableCell>
       ),
       (
@@ -454,11 +497,13 @@ const BudgetEditor = ({
             value={unitCost}
             ref={registerCellRef(item.id, "unit_cost")}
             onChange={(event) => {
-              const value = Number(event.target.value) || 0;
-              setDraftValue(item.id, "unit_cost", value);
+              const raw = event.target.value;
+              const numeric = Math.max(0, Number(raw) || 0);
+              setDraftValue(item.id, "unit_cost", numeric);
+              scheduleDebouncedSave(item.id, { unit_cost: numeric });
             }}
             onBlur={async (event) => {
-              const value = Number(event.target.value) || 0;
+              const value = Math.max(0, Number(event.target.value) || 0);
               const original = originalItem.unit_cost ?? 0;
               if (value === original) {
                 clearDraftValue(item.id, "unit_cost");
@@ -468,6 +513,10 @@ const BudgetEditor = ({
               setDraftValue(item.id, "unit_cost", value);
               try {
                 await onUpdateLineItem({ id: item.id, unit_cost: value });
+                toast({ title: "Saved" });
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: true } }));
+              } catch (err: any) {
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message: err?.message ?? 'Save failed' } }));
               } finally {
                 clearDraftValue(item.id, "unit_cost");
                 resolvePendingFocus();
@@ -483,6 +532,9 @@ const BudgetEditor = ({
               handleDirectionalNavigation(event, scenarioId, rowIndex, getCellIndex("unit_cost"));
             }}
           />
+          {savedStatus[item.id] && !savedStatus[item.id].ok ? (
+            <div className="text-destructive text-xs mt-1">{savedStatus[item.id].message}</div>
+          ) : null}
         </TableCell>
       ),
       (
@@ -543,7 +595,6 @@ const BudgetEditor = ({
                         components={virtuosoComponents}
                         fixedHeaderContent={renderHeaderRow}
                         itemContent={(index, item) => renderRowCells(item, index, scenario.id)}
-                        itemKey={(_index, item) => item.id}
                       />
                     </div>
                   </div>
@@ -562,7 +613,14 @@ const BudgetEditor = ({
                 <div className="flex items-center justify-between border-t pt-4 mt-6">
                   <div className="flex items-center gap-2 text-sm text-muted-foreground">
                     <Save className="h-4 w-4" />
-                    Changes save automatically when you leave a field.
+                    Changes save automatically when you leave a field. { /* show inline saved/error */ }
+                    {Object.entries(savedStatus).map(([id, s]) =>
+                      s ? (
+                        <span key={id} className={s.ok ? 'text-green-500 ml-3 text-xs' : 'text-destructive ml-3 text-xs'}>
+                          {s.ok ? 'Saved' : s.message ?? 'Error'}
+                        </span>
+                      ) : null,
+                    )}
                   </div>
                   <p className="text-sm font-semibold">
                     Scenario total: {formatCurrency(total, currency)}
