@@ -41,8 +41,8 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
 
   // Income breakdown data
   const incomeData = [
-    { name: 'Prize Money', value: data.income.prizeMoney, color: '#ea580c' },
-    { name: 'Sponsors', value: data.income.sponsors, color: '#f97316' },
+    { name: 'Prize Money', value: data.income.prizeMoney, color: '#B08D57' },
+    { name: 'Sponsors', value: data.income.sponsors, color: '#D4AF37' },
     { name: 'Gifts & Support', value: data.income.gifts, color: '#16a34a' },
     { name: 'Other Income', value: data.income.otherIncome, color: '#15803d' },
   ].filter(item => item.value > 0);
@@ -98,7 +98,7 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
     if (active && payload && payload.length) {
       return (
         <div className="bg-green-700 p-4 border border-green-600 rounded-lg shadow-xl">
-          <p className="font-semibold text-orange-100">{label}</p>
+          <p className="font-semibold text-yellow-100">{label}</p>
           {payload.map((entry: any, index: number) => (
             <p key={index} style={{ color: entry.color }} className="font-medium">
               {entry.name}: {formatCurrency(entry.value)}
@@ -115,7 +115,7 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
       {/* Income Breakdown Pie Chart */}
       <Card className="bg-green-800 border border-green-700">
         <CardHeader className="border-b border-green-700">
-          <CardTitle className="text-lg font-bold text-orange-100">
+          <CardTitle className="text-lg font-bold text-yellow-100">
             Income Breakdown
           </CardTitle>
         </CardHeader>
@@ -148,7 +148,7 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
       {/* Monthly Expenses Bar Chart */}
       <Card className="bg-green-800 border border-green-700">
         <CardHeader className="border-b border-green-700">
-          <CardTitle className="text-lg font-bold text-orange-100">
+          <CardTitle className="text-lg font-bold text-yellow-100">
             Monthly Expenses
           </CardTitle>
         </CardHeader>
@@ -175,8 +175,8 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
               />
               <defs>
                 <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#ea580c" />
-                  <stop offset="100%" stopColor="#f97316" />
+                  <stop offset="0%" stopColor="#B08D57" />
+                  <stop offset="100%" stopColor="#D4AF37" />
                 </linearGradient>
               </defs>
             </BarChart>

@@ -23,6 +23,11 @@ import {
 import { exportHandlers } from "@/api/exports/route";
 import FinancialEditor, { FinancialData } from "@/components/FinancialEditor";
 import ProfessionalCharts from "@/components/ProfessionalCharts";
+import { 
+  generateExecutiveSummaryPDF, 
+  generateFinancialStatementPDF, 
+  generateSponsorPackagePDF 
+} from "@/lib/seasonReports";
 import {
   BarChart,
   Bar,
@@ -79,6 +84,11 @@ const SeasonDashboard = () => {
   const [loading, setLoading] = useState(true);
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null);
   const [isProUser, setIsProUser] = useState(false);
+  const [demosUsed, setDemosUsed] = useState<{[key: string]: boolean}>({
+    executiveSummary: false,
+    financialStatement: false,
+    sponsorPackage: false
+  });
   
   // Get current page name from location
   const getCurrentPageName = () => {
@@ -246,6 +256,97 @@ const SeasonDashboard = () => {
     });
   };
 
+  // Professional Report Generation Functions
+  const generateExecutiveSummary = async () => {
+    if (!seasonData) return;
+    
+    try {
+      toast({
+        title: "Generating Executive Summary",
+        description: "Your executive financial summary is being prepared with bank-grade accuracy...",
+      });
+      
+      await generateExecutiveSummaryPDF({
+        financialData,
+        seasonData,
+        playerName: profile?.name || "Professional Tennis Player",
+        seasonYear: 2025
+      });
+      
+      toast({
+        title: "Executive Summary Generated!",
+        description: "Your professional executive summary has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Executive Summary generation failed:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate executive summary. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateFinancialStatement = async () => {
+    if (!seasonData) return;
+    
+    try {
+      toast({
+        title: "Generating Financial Statement",
+        description: "Your complete financial statement is being prepared with institutional-grade detail...",
+      });
+      
+      await generateFinancialStatementPDF({
+        financialData,
+        seasonData,
+        playerName: profile?.name || "Professional Tennis Player", 
+        seasonYear: 2025
+      });
+      
+      toast({
+        title: "Financial Statement Generated!",
+        description: "Your comprehensive 8-page financial statement has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Financial Statement generation failed:', error);
+      toast({
+        title: "Generation failed",
+        description: "Could not generate financial statement. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const generateSponsorPackage = async () => {
+    if (!seasonData) return;
+    
+    try {
+      toast({
+        title: "Generating Sponsor Package",
+        description: "Your professional sponsor presentation is being prepared with investment-grade quality...",
+      });
+      
+      await generateSponsorPackagePDF({
+        financialData,
+        seasonData,
+        playerName: profile?.name || "Professional Tennis Player",
+        seasonYear: 2025
+      });
+      
+      toast({
+        title: "Sponsor Package Generated!",
+        description: "Your investment-grade sponsor presentation has been downloaded successfully.",
+      });
+    } catch (error) {
+      console.error('Sponsor Package generation failed:', error);
+      toast({
+        title: "Generation failed", 
+        description: "Could not generate sponsor package. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-primary flex items-center justify-center">
@@ -323,7 +424,7 @@ const SeasonDashboard = () => {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
+      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8 bg-background rounded-t-3xl mt-4">
         
         {/* Financial Editor */}
         <FinancialEditor
@@ -375,173 +476,456 @@ const SeasonDashboard = () => {
         </div>
         
         {/* Professional Financial Reports */}
-        <div className="space-y-3">
-          <div className="text-center">
-            <h3 className="text-lg font-bold text-foreground mb-1">Professional Reports</h3>
-            <p className="text-muted-foreground text-xs">Bank-grade accuracy and presentation</p>
+        <div className="space-y-6">
+          <div className="text-center space-y-3 p-6 bg-gradient-to-br from-primary/5 to-secondary/5 rounded-2xl border border-border/50">
+            <div className="flex items-center justify-center gap-3 mb-2">
+              <Crown className="w-7 h-7 text-secondary" />
+              <h3 className="text-3xl font-bold text-foreground">Professional Reports Suite</h3>
+              <Crown className="w-7 h-7 text-secondary" />
+            </div>
+            <p className="text-foreground/80 text-base max-w-3xl mx-auto leading-relaxed">
+              Bank-grade financial reports trusted by professional athletes. Get the same level of financial reporting used by Fortune 500 companies, 
+              tailored specifically for tennis professionals seeking sponsorships and managing tournament careers.
+            </p>
+
           </div>
 
-            <div className="grid grid-cols-1 gap-2">
+            <div className="grid grid-cols-1 gap-6">
               {/* Executive Summary Report */}
-              <Card className="p-2 bg-card border border-border hover:border-secondary transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
-                      <FileText className="w-4 h-4 text-secondary-foreground" />
+              <Card className="p-6 bg-card border-2 border-border hover:border-secondary transition-all duration-200 shadow-lg hover:shadow-xl">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center shadow-md">
+                      <FileText className="w-6 h-6 text-secondary-foreground" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-sm font-bold text-card-foreground">
-                        Executive Summary
+                      <CardTitle className="text-xl font-bold text-card-foreground">
+                        Executive Summary Report
                       </CardTitle>
-                      <CardDescription className="text-muted-foreground text-xs">
-                        High-level overview
+                      <CardDescription className="text-muted-foreground text-base mt-1">
+                        Professional 1-page overview for agents, sponsors & family
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-2 pt-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        <li>• YTD vs. Projections</li>
-                        <li>• Revenue breakdown</li>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Financial Highlights</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>YTD Performance vs. Season Goals</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Prize Money & Sponsorship Breakdown</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Net Profitability Analysis</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Expense Category Performance</span>
+                        </li>
                       </ul>
                     </div>
-                    <div className="ml-3">
-                      {isProUser ? (
-                        <Button 
-                          onClick={() => {
-                            toast({
-                              title: "Generating Executive Summary",
-                              description: "Your executive financial summary is being prepared with bank-grade accuracy...",
-                            });
-                          }}
-                          size="sm"
-                          className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          Generate
-                        </Button>
-                      ) : (
-                        <Button 
-                          onClick={() => navigate('/billing')}
-                          variant="outline"
-                          size="sm"
-                          className="border-border text-muted-foreground hover:bg-muted px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          <Lock className="mr-1 h-3 w-3" />
-                          Pro
-                        </Button>
-                      )}
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Pro Features Included</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Professional PDF Export</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Custom Branding & Logo</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Quarterly Trend Analysis</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Executive Summary Dashboard</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-6 p-4 bg-muted/20 rounded-lg border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-card-foreground/70 font-medium">
+                        "Know exactly how much you actually made this season - and what to do with those gains to keep your career covered"
+                      </div>
+                      <div>
+                        {isProUser ? (
+                          <Button 
+                            onClick={() => {
+                              generateExecutiveSummary();
+                            }}
+                            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                          >
+                            <FileText className="mr-2 h-4 w-4" />
+                            Generate Report
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            {!demosUsed.executiveSummary ? (
+                              <Button 
+                                onClick={async () => {
+                                  setDemosUsed(prev => ({ ...prev, executiveSummary: true }));
+                                  toast({
+                                    title: "Generating Demo: Executive Summary",
+                                    description: "Creating a sample report to show you what Pro delivers...",
+                                  });
+                                  
+                                  try {
+                                    await generateExecutiveSummaryPDF({
+                                      financialData,
+                                      seasonData: seasonData || calculateSeasonData(financialData),
+                                      playerName: "Demo Tennis Player",
+                                      seasonYear: 2025
+                                    });
+                                    
+                                    toast({
+                                      title: "Demo Report Downloaded!",
+                                      description: "Check your downloads - this is what you'd get with Pro. Upgrade for unlimited reports with your real data.",
+                                    });
+                                  } catch (error) {
+                                    toast({
+                                      title: "Demo generation failed",
+                                      description: "Please try again or upgrade to Pro for guaranteed report generation.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                variant="secondary"
+                                className="bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-4"
+                              >
+                                <FileText className="mr-2 h-4 w-4" />
+                                Try Demo
+                              </Button>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground px-3 py-1">
+                                Demo Used
+                              </Badge>
+                            )}
+                            <Button 
+                              onClick={() => navigate('/pricing')}
+                              variant="outline"
+                              className="border-2 border-primary/30 text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                            >
+                              <Lock className="mr-2 h-4 w-4" />
+                              Unlock Pro ($2.99/mo)
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Detailed Financial Statement */}
-              <Card className="p-2 bg-card border border-border hover:border-secondary transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
-                      <ChartPie className="w-4 h-4 text-secondary-foreground" />
+              <Card className="p-6 bg-card border-2 border-border hover:border-secondary transition-all duration-200 shadow-lg hover:shadow-xl">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center shadow-md">
+                      <ChartPie className="w-6 h-6 text-secondary-foreground" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-sm font-bold text-card-foreground">
-                        Financial Statement
+                      <CardTitle className="text-xl font-bold text-card-foreground">
+                        Complete Financial Statement
                       </CardTitle>
-                      <CardDescription className="text-muted-foreground text-xs">
-                        Comprehensive analysis
+                      <CardDescription className="text-muted-foreground text-base mt-1">
+                        Comprehensive 8-page analysis with institutional-grade detail
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-2 pt-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        <li>• P&L Statement</li>
-                        <li>• Cash Flow Analysis</li>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Financial Deep Dive</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Complete P&L Statement</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Cash Flow Analysis & Projections</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Tax Calculations & Liability Planning</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Monthly Trend & Variance Analysis</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Budget vs. Actual Performance</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>ROI on Training & Equipment</span>
+                        </li>
                       </ul>
                     </div>
-                    <div className="ml-3">
-                      {isProUser ? (
-                        <Button 
-                          onClick={() => {
-                            toast({
-                              title: "Generating Financial Statement",
-                              description: "Your complete financial statement is being prepared with institutional-grade detail...",
-                            });
-                          }}
-                          size="sm"
-                          className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          Generate
-                        </Button>
-                      ) : (
-                        <Button 
-                          onClick={() => navigate('/billing')}
-                          variant="outline"
-                          size="sm"
-                          className="border-border text-muted-foreground hover:bg-muted px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          <Lock className="mr-1 h-3 w-3" />
-                          Pro
-                        </Button>
-                      )}
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Advanced Analytics</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Tournament ROI Analysis</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Cost-per-Point Metrics</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Seasonal Expense Optimization</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Multi-Year Trend Comparisons</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Risk Assessment & Mitigation</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Performance Benchmarking</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-6 p-4 bg-muted/20 rounded-lg border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-card-foreground/70 font-medium">
+                        "Stop explaining your finances with napkin math - get the credibility you deserve"
+                      </div>
+                      <div>
+                        {isProUser ? (
+                          <Button 
+                            onClick={() => {
+                              generateFinancialStatement();
+                            }}
+                            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                          >
+                            <ChartPie className="mr-2 h-4 w-4" />
+                            Generate Statement
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            {!demosUsed.financialStatement ? (
+                              <Button 
+                                onClick={async () => {
+                                  setDemosUsed(prev => ({ ...prev, financialStatement: true }));
+                                  toast({
+                                    title: "Generating Demo: Financial Statement",
+                                    description: "Creating a comprehensive 8-page sample analysis...",
+                                  });
+                                  
+                                  try {
+                                    await generateFinancialStatementPDF({
+                                      financialData,
+                                      seasonData: seasonData || calculateSeasonData(financialData),
+                                      playerName: "Demo Tennis Player",
+                                      seasonYear: 2025
+                                    });
+                                    
+                                    toast({
+                                      title: "Demo Financial Statement Downloaded!",
+                                      description: "8-page institutional-grade analysis in your downloads. Upgrade to Pro for your real data.",
+                                    });
+                                  } catch (error) {
+                                    toast({
+                                      title: "Demo generation failed",
+                                      description: "Please try again or upgrade to Pro for guaranteed report generation.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                variant="secondary"
+                                className="bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-4"
+                              >
+                                <ChartPie className="mr-2 h-4 w-4" />
+                                Try Demo
+                              </Button>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground px-3 py-1">
+                                Demo Used
+                              </Badge>
+                            )}
+                            <Button 
+                              onClick={() => navigate('/pricing')}
+                              variant="outline"
+                              className="border-2 border-primary/30 text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                            >
+                              <Lock className="mr-2 h-4 w-4" />
+                              Unlock Pro ($2.99/mo)
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>
               </Card>
 
               {/* Sponsor/Investor Package */}
-              <Card className="p-2 bg-card border border-border hover:border-secondary transition-colors">
-                <CardHeader className="pb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 bg-secondary rounded-lg flex items-center justify-center">
-                      <Trophy className="w-4 h-4 text-secondary-foreground" />
+              <Card className="p-6 bg-card border-2 border-border hover:border-secondary transition-all duration-200 shadow-lg hover:shadow-xl">
+                <CardHeader className="pb-4">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 bg-secondary rounded-xl flex items-center justify-center shadow-md">
+                      <Trophy className="w-6 h-6 text-secondary-foreground" />
                     </div>
                     <div className="flex-1">
-                      <CardTitle className="text-sm font-bold text-card-foreground">
-                        Sponsor Presentation
+                      <CardTitle className="text-xl font-bold text-card-foreground">
+                        Sponsor Presentation Package
                       </CardTitle>
-                      <CardDescription className="text-muted-foreground text-xs">
-                        Investment-grade package
+                      <CardDescription className="text-muted-foreground text-base mt-1">
+                        Editable PowerPoint-style template with WOLFPRO watermark
                       </CardDescription>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="p-2 pt-0">
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
-                      <ul className="space-y-1 text-xs text-muted-foreground">
-                        <li>• ROI Analysis</li>
-                        <li>• Media Value</li>
+                <CardContent className="pt-0">
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Sponsorship Tools</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>ROI Analysis for Potential Sponsors</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Media Value & Exposure Metrics</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Tournament Performance Portfolio</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Social Media Analytics Dashboard</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Brand Partnership Opportunities</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Future Projections & Growth Plan</span>
+                        </li>
                       </ul>
                     </div>
-                    <div className="ml-3">
-                      {isProUser ? (
-                        <Button 
-                          onClick={() => {
-                            toast({
-                              title: "Generating Sponsor Package",
-                              description: "Your professional sponsor presentation is being prepared with investment-grade quality...",
-                            });
-                          }}
-                          size="sm"
-                          className="bg-secondary hover:bg-secondary/90 text-secondary-foreground px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          Generate
-                        </Button>
-                      ) : (
-                        <Button 
-                          onClick={() => navigate('/billing')}
-                          variant="outline"
-                          size="sm"
-                          className="border-border text-muted-foreground hover:bg-muted px-3 focus-visible:ring-2 focus-visible:ring-primary"
-                        >
-                          <Lock className="mr-1 h-3 w-3" />
-                          Pro
-                        </Button>
-                      )}
+                    <div className="space-y-3">
+                      <h4 className="text-base font-bold text-card-foreground">Professional Assets</h4>
+                      <ul className="space-y-2 text-sm text-card-foreground/80">
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>8-Slide PowerPoint-Style Template</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Editable Text Fields & Placeholders</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Professional Design & Layout</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Tournament Schedule Template</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>Social Media Stats Framework</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                          <span className="text-secondary mt-0.5">•</span>
+                          <span>WOLFPRO Watermark (Permanent)</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                  <div className="mt-6 p-4 bg-muted/20 rounded-lg border border-border/50">
+                    <div className="flex items-center justify-between">
+                      <div className="text-sm text-card-foreground/70 font-medium">
+                        "Professional template you can edit and customize - includes permanent WOLFPRO branding"
+                      </div>
+                      <div>
+                        {isProUser ? (
+                          <Button 
+                            onClick={() => {
+                              generateSponsorPackage();
+                            }}
+                            className="bg-secondary hover:bg-secondary/90 text-secondary-foreground focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                          >
+                            <Trophy className="mr-2 h-4 w-4" />
+                            Generate Package
+                          </Button>
+                        ) : (
+                          <div className="flex items-center gap-3">
+                            {!demosUsed.sponsorPackage ? (
+                              <Button 
+                                onClick={async () => {
+                                  setDemosUsed(prev => ({ ...prev, sponsorPackage: true }));
+                                  toast({
+                                    title: "Generating Demo: Sponsor Package",
+                                    description: "Creating investment-grade presentation for sponsors...",
+                                  });
+                                  
+                                  try {
+                                    await generateSponsorPackagePDF({
+                                      financialData,
+                                      seasonData: seasonData || calculateSeasonData(financialData),
+                                      playerName: "Demo Tennis Player",
+                                      seasonYear: 2025
+                                    });
+                                    
+                                    toast({
+                                      title: "Sponsor Template Downloaded!",
+                                      description: "8-slide PowerPoint-style template with WOLFPRO watermark. Edit the template fields to customize for your sponsors.",
+                                    });
+                                  } catch (error) {
+                                    toast({
+                                      title: "Demo generation failed",
+                                      description: "Please try again or upgrade to Pro for guaranteed report generation.",
+                                      variant: "destructive",
+                                    });
+                                  }
+                                }}
+                                variant="secondary"
+                                className="bg-secondary/20 hover:bg-secondary/30 text-secondary border border-secondary/30 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-4"
+                              >
+                                <Trophy className="mr-2 h-4 w-4" />
+                                Try Demo
+                              </Button>
+                            ) : (
+                              <Badge variant="outline" className="text-muted-foreground px-3 py-1">
+                                Demo Used
+                              </Badge>
+                            )}
+                            <Button 
+                              onClick={() => navigate('/pricing')}
+                              variant="outline"
+                              className="border-2 border-primary/30 text-primary hover:bg-primary/10 focus-visible:ring-2 focus-visible:ring-primary font-semibold px-6"
+                            >
+                              <Lock className="mr-2 h-4 w-4" />
+                              Unlock Pro ($2.99/mo)
+                            </Button>
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </CardContent>

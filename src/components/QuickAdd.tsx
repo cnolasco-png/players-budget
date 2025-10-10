@@ -72,7 +72,7 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
     setIsOpen(false);
   };
 
-  const handleCustomSubmit = () => {
+  const handleCustomSubmit = async () => {
     if (!amount || !description || !category) {
       toast({
         title: "Missing information",
@@ -82,29 +82,91 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
       return;
     }
 
-    const newItem = {
-      amount: parseFloat(amount),
-      description,
-      category,
-      date: new Date().toISOString().split('T')[0]
-    };
+    try {
+      // Check for pending receipt data
+      const pendingReceiptData = sessionStorage.getItem('pending_receipt');
+      let notes = null;
+      
+      if (pendingReceiptData && isProUser) {
+        const receiptMetadata = JSON.parse(pendingReceiptData);
+        notes = JSON.stringify({
+          receipt_attached: true,
+          receipt_url: receiptMetadata.file_url,
+          receipt_file_name: receiptMetadata.file_name,
+          ocr_confidence: receiptMetadata.ocr_data?.confidence || 'unknown',
+          processed_at: receiptMetadata.uploaded_at
+        });
+        
+        // Clear the pending receipt
+        sessionStorage.removeItem('pending_receipt');
+      }
 
-    if (type === 'expense') {
-      onAddExpense(newItem);
-    } else {
-      onAddIncome(newItem);
+      const newItem = {
+        amount: parseFloat(amount),
+        description,
+        category,
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      // For Pro users with receipt data, also save to database
+      if (isProUser && notes) {
+        try {
+          const { supabase } = await import("@/integrations/supabase/client");
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (user) {
+            const { error: dbError } = await supabase
+              .from('expense_entries')
+              .insert({
+                user_id: user.id,
+                date: newItem.date,
+                category: newItem.category,
+                label: newItem.description,
+                amount: newItem.amount,
+                currency: 'USD',
+                notes: notes
+              });
+
+            if (dbError) {
+              console.error('Database save error:', dbError);
+              // Continue with local storage anyway
+            } else {
+              toast({
+                title: "Transaction saved to cloud",
+                description: `${type === 'expense' ? 'Expense' : 'Income'} of $${amount} saved with receipt attachment.`,
+              });
+            }
+          }
+        } catch (error) {
+          console.error('Cloud save error:', error);
+        }
+      }
+
+      if (type === 'expense') {
+        onAddExpense(newItem);
+      } else {
+        onAddIncome(newItem);
+      }
+
+      toast({
+        title: "Transaction added",
+        description: `${type === 'expense' ? 'Expense' : 'Income'} of $${amount} added successfully.${notes ? ' Receipt stored in cloud.' : ''}`,
+      });
+
+      // Reset form
+      setAmount("");
+      setDescription("");
+      setCategory("");
+      setIsOpen(false);
+      
+    } catch (error) {
+      console.error('Error submitting transaction:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save transaction. Please try again.",
+        variant: "destructive",
+      });
     }
-
-    toast({
-      title: "Transaction added",
-      description: `${type === 'expense' ? 'Expense' : 'Income'} of $${amount} added successfully.`,
-    });
-
-    // Reset form
-    setAmount("");
-    setDescription("");
-    setCategory("");
-    setIsOpen(false);
   };
 
   const handleReceiptUpload = async (file: File) => {
@@ -120,8 +182,38 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
     setIsProcessingOCR(true);
 
     try {
+      // Import supabase for cloud storage
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+
+      // Upload image to Supabase Storage
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`;
+      
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('receipts')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) {
+        throw new Error(`Upload failed: ${uploadError.message}`);
+      }
+
+      // Get public URL for the uploaded image
+      const { data: urlData } = supabase.storage
+        .from('receipts')
+        .getPublicUrl(fileName);
+
+      // Process OCR with mock API
       const formData = new FormData();
       formData.append('receipt', file);
+      formData.append('imageUrl', urlData.publicUrl);
 
       const response = await fetch('/api/ocr', {
         method: 'POST',
@@ -134,6 +226,19 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
 
       const result = await response.json();
       
+      // Store receipt metadata for later use when creating expense
+      const receiptMetadata = {
+        file_name: file.name,
+        file_path: fileName,
+        file_url: urlData.publicUrl,
+        ocr_data: result,
+        processing_status: 'completed',
+        uploaded_at: new Date().toISOString()
+      };
+
+      // Store in session storage for use when creating the expense entry
+      sessionStorage.setItem('pending_receipt', JSON.stringify(receiptMetadata));
+      
       // Pre-fill form with OCR results
       setAmount(result.amount?.toString() || "");
       setDescription(result.description || "");
@@ -141,12 +246,12 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
       setActiveTab("custom");
 
       toast({
-        title: "Receipt processed",
-        description: "Information extracted from receipt. Please review and submit.",
+        title: "Receipt processed & stored!",
+        description: "Receipt saved to cloud storage. Information extracted - please review and submit.",
       });
 
     } catch (error) {
-      console.error('OCR error:', error);
+      console.error('Receipt processing error:', error);
       toast({
         title: "Processing failed",
         description: "Could not process receipt. Please enter manually.",
@@ -254,31 +359,63 @@ const QuickAdd = ({ isProUser, onAddExpense, onAddIncome }: QuickAddProps) => {
                 <div className="space-y-4">
                   <p className="text-sm text-muted-foreground">Upload a receipt to automatically extract details</p>
                   
-                  <div className="border-2 border-dashed border-muted rounded-lg p-6 text-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => e.target.files?.[0] && handleReceiptUpload(e.target.files[0])}
-                      className="hidden"
-                      id="receipt-upload"
-                      disabled={isProcessingOCR}
-                    />
-                    <label htmlFor="receipt-upload" className="cursor-pointer">
-                      {isProcessingOCR ? (
-                        <div className="space-y-2">
-                          <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
-                          <p className="text-sm">Processing receipt...</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          <Upload className="w-8 h-8 text-muted-foreground mx-auto" />
-                          <p className="text-sm font-medium">Upload Receipt</p>
-                          <p className="text-xs text-muted-foreground">
-                            Tap to select photo from camera or gallery
-                          </p>
-                        </div>
-                      )}
-                    </label>
+                  <div className="space-y-3">
+                    {/* Camera Button */}
+                    <div className="border-2 border-dashed border-emerald-200 rounded-lg p-4 text-center bg-emerald-50">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => e.target.files?.[0] && handleReceiptUpload(e.target.files[0])}
+                        className="hidden"
+                        id="camera-upload"
+                        disabled={isProcessingOCR}
+                      />
+                      <label htmlFor="camera-upload" className="cursor-pointer">
+                        {isProcessingOCR ? (
+                          <div className="space-y-2">
+                            <div className="w-8 h-8 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin mx-auto" />
+                            <p className="text-sm text-emerald-700">Processing receipt...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Camera className="w-8 h-8 text-emerald-600 mx-auto" />
+                            <p className="text-sm font-medium text-emerald-700">Take Photo</p>
+                            <p className="text-xs text-emerald-600">
+                              Tap to open camera
+                            </p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
+
+                    {/* Gallery Upload Button */}
+                    <div className="border-2 border-dashed border-muted rounded-lg p-4 text-center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => e.target.files?.[0] && handleReceiptUpload(e.target.files[0])}
+                        className="hidden"
+                        id="gallery-upload"
+                        disabled={isProcessingOCR}
+                      />
+                      <label htmlFor="gallery-upload" className="cursor-pointer">
+                        {isProcessingOCR ? (
+                          <div className="space-y-2">
+                            <div className="w-6 h-6 border-2 border-gray-400 border-t-transparent rounded-full animate-spin mx-auto" />
+                            <p className="text-xs text-muted-foreground">Processing...</p>
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <Upload className="w-6 h-6 text-muted-foreground mx-auto" />
+                            <p className="text-sm font-medium">Choose from Gallery</p>
+                            <p className="text-xs text-muted-foreground">
+                              Select existing photo
+                            </p>
+                          </div>
+                        )}
+                      </label>
+                    </div>
                   </div>
                 </div>
               ) : (

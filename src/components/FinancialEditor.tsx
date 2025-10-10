@@ -111,16 +111,16 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
     <div className="space-y-6">
       <Tabs defaultValue="income" className="w-full">
         <TabsList className="grid w-full grid-cols-3 bg-green-800 border border-green-700">
-          <TabsTrigger value="income" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white text-green-300 hover:bg-green-700 hover:text-orange-100">Monthly Income</TabsTrigger>
-          <TabsTrigger value="expenses" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white text-green-300 hover:bg-green-700 hover:text-orange-100">Monthly Expenses</TabsTrigger>
-          <TabsTrigger value="projections" className="data-[state=active]:bg-orange-600 data-[state=active]:text-white text-green-300 hover:bg-green-700 hover:text-orange-100">Yearly Projections</TabsTrigger>
+          <TabsTrigger value="income" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground text-green-300 hover:bg-green-700 hover:text-yellow-100">Monthly Income</TabsTrigger>
+          <TabsTrigger value="expenses" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground text-green-300 hover:bg-green-700 hover:text-yellow-100">Monthly Expenses</TabsTrigger>
+          <TabsTrigger value="projections" className="data-[state=active]:bg-secondary data-[state=active]:text-secondary-foreground text-green-300 hover:bg-green-700 hover:text-yellow-100">Yearly Projections</TabsTrigger>
         </TabsList>
 
         {/* Monthly Income */}
         <TabsContent value="income" className="space-y-4">
           <Card className="bg-green-800 border border-green-700">
             <CardHeader className="flex flex-row items-center justify-between border-b border-green-700">
-              <CardTitle className="text-xl font-bold text-orange-100">
+              <CardTitle className="text-xl font-bold text-yellow-100">
                 Monthly Income ({formatCurrency(totalIncome / 12)}/month)
               </CardTitle>
               {editingSection !== 'income' ? (
@@ -128,14 +128,14 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                   onClick={() => handleEdit('income')} 
                   variant="outline" 
                   size="sm"
-                  className="border-green-600 text-green-300 hover:bg-green-700 hover:text-orange-100"
+                  className="border-green-600 text-green-300 hover:bg-green-700 hover:text-yellow-100"
                 >
                   <Edit3 className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
               ) : (
                 <div className="flex gap-2">
-                  <Button onClick={handleSave} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                  <Button onClick={handleSave} size="sm" className="bg-secondary hover:bg-secondary/90 text-white">
                     <Save className="h-4 w-4 mr-2" />
                     Save
                   </Button>
@@ -155,12 +155,12 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={Math.round(tempData.prizeMoney / 12)}
                       onChange={(e) => updateIncome('prizeMoney', String((parseInt(e.target.value) || 0) * 12))}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                       placeholder="Monthly amount"
                     />
                   ) : (
                     <div className="p-4 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(Math.round(data.prizeMoney / 12))}/month</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(Math.round(data.prizeMoney / 12))}/month</span>
                       <span className="text-sm text-green-300 block mt-1">({formatCurrency(data.prizeMoney)}/year)</span>
                     </div>
                   )}
@@ -173,12 +173,12 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={Math.round(tempData.sponsors / 12)}
                       onChange={(e) => updateIncome('sponsors', String((parseInt(e.target.value) || 0) * 12))}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                       placeholder="Monthly amount"
                     />
                   ) : (
                     <div className="p-4 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(Math.round(data.sponsors / 12))}/month</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(Math.round(data.sponsors / 12))}/month</span>
                       <span className="text-sm text-green-300 block mt-1">({formatCurrency(data.sponsors)}/year)</span>
                     </div>
                   )}
@@ -191,12 +191,12 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={Math.round(tempData.gifts / 12)}
                       onChange={(e) => updateIncome('gifts', String((parseInt(e.target.value) || 0) * 12))}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                       placeholder="Monthly amount"
                     />
                   ) : (
                     <div className="p-4 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(Math.round(data.gifts / 12))}/month</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(Math.round(data.gifts / 12))}/month</span>
                       <span className="text-sm text-green-300 block mt-1">({formatCurrency(data.gifts)}/year)</span>
                     </div>
                   )}
@@ -209,12 +209,12 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={Math.round(tempData.otherIncome / 12)}
                       onChange={(e) => updateIncome('otherIncome', String((parseInt(e.target.value) || 0) * 12))}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                       placeholder="Monthly amount"
                     />
                   ) : (
                     <div className="p-4 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(Math.round(data.otherIncome / 12))}/month</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(Math.round(data.otherIncome / 12))}/month</span>
                       <span className="text-sm text-green-300 block mt-1">({formatCurrency(data.otherIncome)}/year)</span>
                     </div>
                   )}
@@ -228,7 +228,7 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
         <TabsContent value="expenses" className="space-y-4">
           <Card className="bg-green-800 border border-green-700">
             <CardHeader className="flex flex-row items-center justify-between border-b border-green-700">
-              <CardTitle className="text-xl font-bold text-orange-100">
+              <CardTitle className="text-xl font-bold text-yellow-100">
                 Monthly Expenses ({formatCurrency(monthlyExpenseTotal)}/month)
               </CardTitle>
               {editingSection !== 'expenses' ? (
@@ -236,14 +236,14 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                   onClick={() => handleEdit('expenses')} 
                   variant="outline" 
                   size="sm"
-                  className="border-green-600 text-green-300 hover:bg-green-700 hover:text-orange-100"
+                  className="border-green-600 text-green-300 hover:bg-green-700 hover:text-yellow-100"
                 >
                   <Edit3 className="h-4 w-4 mr-2" />
                   Edit
                 </Button>
               ) : (
                 <div className="flex gap-2">
-                  <Button onClick={handleSave} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                  <Button onClick={handleSave} size="sm" className="bg-secondary hover:bg-secondary/90 text-white">
                     <Save className="h-4 w-4 mr-2" />
                     Save
                   </Button>
@@ -264,11 +264,11 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                         type="number"
                         value={tempData.monthlyExpenses[key as keyof typeof tempData.monthlyExpenses]}
                         onChange={(e) => updateMonthlyExpense(key as keyof FinancialData['monthlyExpenses'], e.target.value)}
-                        className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                        className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                       />
                     ) : (
                       <div className="p-3 bg-green-700 rounded-lg border border-green-600">
-                        <span className="text-lg font-semibold text-orange-100">{formatCurrency(value)}</span>
+                        <span className="text-lg font-semibold text-yellow-100">{formatCurrency(value)}</span>
                       </div>
                     )}
                   </div>
@@ -290,20 +290,20 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
             {/* Income Projection */}
             <Card className="bg-green-800 border border-green-700">
               <CardHeader className="flex flex-row items-center justify-between border-b border-green-700">
-                <CardTitle className="text-lg font-bold text-orange-100">Income Projection</CardTitle>
+                <CardTitle className="text-lg font-bold text-yellow-100">Income Projection</CardTitle>
                 {editingSection !== 'projections' ? (
                   <Button 
                     onClick={() => handleEdit('projections')} 
                     variant="outline" 
                     size="sm"
-                    className="border-green-600 text-green-300 hover:bg-green-700 hover:text-orange-100"
+                    className="border-green-600 text-green-300 hover:bg-green-700 hover:text-yellow-100"
                   >
                     <Edit3 className="h-4 w-4 mr-2" />
                     Edit
                   </Button>
                 ) : (
                   <div className="flex gap-2">
-                    <Button onClick={handleSave} size="sm" className="bg-orange-600 hover:bg-orange-700 text-white">
+                    <Button onClick={handleSave} size="sm" className="bg-secondary hover:bg-secondary/90 text-white">
                       <Save className="h-4 w-4 mr-2" />
                       Save
                     </Button>
@@ -322,11 +322,11 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={tempData.yearlyProjected.income}
                       onChange={(e) => updateYearlyProjection('income', e.target.value)}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                     />
                   ) : (
                     <div className="p-3 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(data.yearlyProjected.income)}</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(data.yearlyProjected.income)}</span>
                     </div>
                   )}
                 </div>
@@ -343,7 +343,7 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                   <span className="font-medium text-green-300">vs. Projected:</span>
                   <Badge 
                     variant={actualVsProjectedIncome >= 0 ? 'default' : 'destructive'}
-                    className={actualVsProjectedIncome >= 0 ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-red-600 text-white'}
+                    className={actualVsProjectedIncome >= 0 ? 'bg-secondary hover:bg-secondary/90 text-white' : 'bg-red-600 text-white'}
                   >
                     {actualVsProjectedIncome >= 0 ? <TrendingUp className="h-3 w-3 mr-1" /> : <TrendingDown className="h-3 w-3 mr-1" />}
                     {formatCurrency(Math.abs(actualVsProjectedIncome))} {actualVsProjectedIncome >= 0 ? 'ahead' : 'behind'}
@@ -355,7 +355,7 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
             {/* Expense Projection */}
             <Card className="bg-green-800 border border-green-700">
               <CardHeader className="border-b border-green-700">
-                <CardTitle className="text-lg font-bold text-orange-100">Expense Projection</CardTitle>
+                <CardTitle className="text-lg font-bold text-yellow-100">Expense Projection</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 p-6">
                 <div className="space-y-2">
@@ -365,11 +365,11 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                       type="number"
                       value={tempData.yearlyProjected.expenses}
                       onChange={(e) => updateYearlyProjection('expenses', e.target.value)}
-                      className="bg-green-700 border-green-600 text-orange-100 focus:border-orange-600"
+                      className="bg-green-700 border-green-600 text-yellow-100 focus:border-secondary"
                     />
                   ) : (
                     <div className="p-3 bg-green-700 rounded-lg border border-green-600">
-                      <span className="text-lg font-semibold text-orange-100">{formatCurrency(data.yearlyProjected.expenses)}</span>
+                      <span className="text-lg font-semibold text-yellow-100">{formatCurrency(data.yearlyProjected.expenses)}</span>
                     </div>
                   )}
                 </div>
@@ -386,7 +386,7 @@ export default function FinancialEditor({ data, onUpdate, currency = 'USD' }: Fi
                   <span className="font-medium text-green-300">vs. Projected:</span>
                   <Badge 
                     variant={actualVsProjectedExpenses <= 0 ? 'default' : 'destructive'}
-                    className={actualVsProjectedExpenses <= 0 ? 'bg-orange-600 hover:bg-orange-700 text-white' : 'bg-red-600 text-white'}
+                    className={actualVsProjectedExpenses <= 0 ? 'bg-secondary hover:bg-secondary/90 text-white' : 'bg-red-600 text-white'}
                   >
                     {actualVsProjectedExpenses <= 0 ? <TrendingDown className="h-3 w-3 mr-1" /> : <TrendingUp className="h-3 w-3 mr-1" />}
                     {formatCurrency(Math.abs(actualVsProjectedExpenses))} {actualVsProjectedExpenses <= 0 ? 'under' : 'over'}
