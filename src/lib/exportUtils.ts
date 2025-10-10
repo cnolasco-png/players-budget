@@ -1,3 +1,5 @@
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
 import type {
   BudgetRecord,
@@ -77,13 +79,8 @@ export function exportBudgetToCsv(payload: ExportPayload) {
   triggerDownload(`${budget.title.replace(/\s+/g, "-")}-budget.csv`, csvContent, "text/csv;charset=utf-8;");
 }
 
-async function loadPdfLibraries() {
-  return Promise.all([import("jspdf"), import("jspdf-autotable")]);
-}
-
 export async function exportBudgetToPdf(payload: ExportPayload) {
   const { budget, scenarios, lineItems, incomes } = payload;
-  const [{ default: jsPDF }, { default: autoTable }] = await loadPdfLibraries();
   const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" });
   const currency = budget.base_currency ?? "USD";
   const scenarioTotals = calculateScenarioTotals(scenarios, lineItems);
@@ -101,8 +98,9 @@ export async function exportBudgetToPdf(payload: ExportPayload) {
     theme: "grid",
   });
 
+  const y1 = doc.lastAutoTable?.finalY ?? 20;
   autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 20,
+    startY: y1 + 20,
     head: [["Income Source", "Type", "Monthly Amount"]],
     body: incomes.map((income) => [
       income.label,
@@ -113,8 +111,9 @@ export async function exportBudgetToPdf(payload: ExportPayload) {
     theme: "grid",
   });
 
+  const y2 = doc.lastAutoTable?.finalY ?? 20;
   autoTable(doc, {
-    startY: doc.lastAutoTable.finalY + 20,
+    startY: y2 + 20,
     head: [["Scenario", "Line Item", "Qty", "Unit Cost", "Monthly"]],
     body: lineItems.map((item) => {
       const scenarioName = scenarios.find((scenario) => scenario.id === item.scenario_id)?.name ?? "";
@@ -137,7 +136,6 @@ export async function exportBudgetToPdf(payload: ExportPayload) {
 
 export async function exportSponsorPackPdf(payload: ExportPayload) {
   const { budget, scenarios, lineItems, incomes } = payload;
-  const [{ default: jsPDF }, { default: autoTable }] = await loadPdfLibraries();
   const currency = budget.base_currency ?? "USD";
   const scenarioTotals = calculateScenarioTotals(scenarios, lineItems);
   const totalIncome = incomes.reduce((sum, income) => sum + (income.amount_monthly ?? 0), 0);
@@ -223,16 +221,17 @@ export async function exportSponsorPackPdf(payload: ExportPayload) {
   });
 
   const gap = totalSpend - totalIncome;
+  const finalY = doc.lastAutoTable?.finalY ?? 20;
   doc.setFontSize(12);
   doc.text(
     gap > 0
       ? `Current funding gap: ${formatCurrency(gap, currency)} per month`
       : `Surplus funds: ${formatCurrency(Math.abs(gap), currency)} per month`,
     40,
-    doc.lastAutoTable.finalY + 24,
+    finalY + 24,
   );
 
-  doc.text("Callouts", 40, doc.lastAutoTable.finalY + 56);
+  doc.text("Callouts", 40, finalY + 56);
   const bulletPoints = [
     scenarioTotals[0]
       ? `Top scenario: ${scenarioTotals[0].scenario.name} at ${formatCurrency(scenarioTotals[0].total, currency)}.`
@@ -244,7 +243,7 @@ export async function exportSponsorPackPdf(payload: ExportPayload) {
   ];
   doc.setFontSize(11);
   bulletPoints.forEach((point, index) => {
-    doc.text(`• ${point}`, 60, doc.lastAutoTable.finalY + 80 + index * 18);
+    doc.text(`• ${point}`, 60, finalY + 80 + index * 18);
   });
 
   doc.save(`${budget.title.replace(/\s+/g, "-")}-sponsor-pack.pdf`);
