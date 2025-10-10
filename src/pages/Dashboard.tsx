@@ -29,25 +29,10 @@ import { LineChart, Line, Legend } from "recharts";
 import ScenarioQuickView from "@/components/dashboard/ScenarioQuickView";
 import ActivityLog from "@/components/dashboard/ActivityLog";
 import { getEffectiveTaxPct, planMonthlyCost, sumIncomeMTD, forecastToYearEnd, applyContingency } from "@/utils/finance";
+import type { ForecastRow } from "@/types/domain";
 
-// Type definitions
-interface ActivityEntry {
-  id: string;
-  type: "line_item" | "income";
-  createdAt: string;
-  budgetTitle: string;
-  scenarioName?: string | null;
-  label: string;
-  amount?: number | null;
-  currency?: string | null;
-}
-
-interface ForecastRow {
-  month: string;
-  plannedIncome: number;
-  plannedCost: number;
-  net: number;
-}
+// Use ActivityLog's exported ActivityEntry type for compatibility with the component
+type ActivityEntry = import("@/components/dashboard/ActivityLog").ActivityEntry;
 
 const INCOME_CATEGORY_LABELS: Record<string, string> = {
   prize: "Prize money",
