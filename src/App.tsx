@@ -21,6 +21,7 @@ import ChatSupportWidget from "./components/support/ChatSupportWidget";
 import Pricing from "./pages/Pricing";
 import Claim from "./pages/Claim";
 import Expenses from "./pages/Expenses";
+import FMSA from "./pages/FMSA";
 
 const queryClient = new QueryClient();
 
@@ -48,6 +49,7 @@ const App = () => (
           <Route path="/pricing" element={<Pricing />} />
           <Route path="/claim" element={<Claim />} />
           <Route path="/expenses" element={<Expenses />} />
+          <Route path="/academy/fmsa" element={<FMSA />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </Router>
