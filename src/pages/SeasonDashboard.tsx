@@ -93,7 +93,8 @@ const SeasonDashboard = () => {
   // Get current page name from location
   const getCurrentPageName = () => {
     switch(location.pathname) {
-      case '/sponsors/tool': return 'Get Sponsors';
+      case '/academy/fmsa': return 'Academy';
+      case '/sponsors/tool': return 'Sponsors';
       case '/pricing': return 'Pricing';
       case '/settings': return 'Settings';
       case '/dashboard':
@@ -373,10 +374,16 @@ const SeasonDashboard = () => {
                 Dashboard
               </button>
               <button 
+                onClick={() => navigate('/academy/fmsa')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/academy/fmsa' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Academy
+              </button>
+              <button 
                 onClick={() => navigate('/sponsors/tool')} 
                 className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/sponsors/tool' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
               >
-                Get Sponsors
+                Sponsors
               </button>
               <button 
                 onClick={() => navigate('/pricing')} 

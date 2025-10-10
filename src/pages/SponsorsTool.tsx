@@ -447,10 +447,16 @@ export default function SponsorsToolPage() {
                   Dashboard
                 </button>
                 <button 
+                  onClick={() => navigate('/academy/fmsa')} 
+                  className="text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary text-primary-foreground/70 hover:text-secondary"
+                >
+                  Academy
+                </button>
+                <button 
                   onClick={() => navigate('/sponsors/tool')} 
                   className="text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary text-secondary border-b-2 border-secondary pb-2"
                 >
-                  Get Sponsors
+                  Sponsors
                 </button>
                 <button 
                   onClick={() => navigate('/pricing')} 

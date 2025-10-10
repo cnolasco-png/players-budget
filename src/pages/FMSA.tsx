@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '../integrations/supabase/client';
 import { useModuleGate } from '../lib/useModuleGate';
 import { usePro } from '../lib/usePro';
@@ -238,6 +239,8 @@ function LessonGate({ slug, children }: LessonGateProps) {
 }
 
 export default function FMSAPage() {
+  const navigate = useNavigate();
+  const location = useLocation();
   const [progress, setProgress] = useState<CourseProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
@@ -356,7 +359,59 @@ export default function FMSAPage() {
   };
 
   return (
-    <div className="container mx-auto px-4 py-8 max-w-4xl">
+    <div className="min-h-screen bg-primary">
+      {/* Navigation Header */}
+      <header className="bg-primary/90 border-b border-primary/70 sticky top-0 z-10">
+        <div className="bg-primary border-b border-primary/70">
+          <div className="max-w-7xl mx-auto px-6 py-3">
+            <nav className="flex gap-6">
+              <button 
+                onClick={() => navigate('/dashboard')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/dashboard' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Dashboard
+              </button>
+              <button 
+                onClick={() => navigate('/academy/fmsa')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/academy/fmsa' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Academy
+              </button>
+              <button 
+                onClick={() => navigate('/sponsors/tool')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/sponsors/tool' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Sponsors
+              </button>
+              <button 
+                onClick={() => navigate('/pricing')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/pricing' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Pricing
+              </button>
+              <button 
+                onClick={() => navigate('/settings')} 
+                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/settings' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
+              >
+                Settings
+              </button>
+            </nav>
+          </div>
+        </div>
+        
+        {/* Page Title */}
+        <div className="max-w-7xl mx-auto px-6 py-6">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-3xl font-bold text-primary-foreground">Academy</h1>
+              <p className="text-primary-foreground/70 mt-1">Financial Mindset & Strategy Accelerator</p>
+            </div>
+          </div>
+        </div>
+      </header>
+
+      <main className="bg-background">
+        <div className="container mx-auto px-4 py-8 max-w-4xl">
       {/* Hero Section */}
       <div className="text-center space-y-6 mb-12">
         <div className="space-y-4">
@@ -394,8 +449,8 @@ export default function FMSAPage() {
         </div>
       </div>
 
-      {/* Course Content */}
-      <div className="space-y-8">
+        {/* Course Content */}
+        <div className="space-y-8">
         <Accordion type="single" collapsible className="space-y-4">
           <AccordionItem value="day0" className="border rounded-lg px-4">
             <AccordionTrigger className="text-left hover:no-underline">
@@ -582,22 +637,24 @@ export default function FMSAPage() {
           </AccordionItem>
         </Accordion>
 
-        {/* Fan Monetization Module - Gated */}
-        <div className="pt-8 border-t">
-          <LessonGate slug="fan-monetization">
-            {/* Future unlocked content will go here */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Fan Monetization (Mentorship, Hitting, Match Analysis)</CardTitle>
-                <CardDescription>Advanced strategies for monetizing your expertise</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <p className="text-muted-foreground">Unlocked content coming soon...</p>
-              </CardContent>
-            </Card>
-          </LessonGate>
+          {/* Fan Monetization Module - Gated */}
+          <div className="pt-8 border-t">
+            <LessonGate slug="fan-monetization">
+              {/* Future unlocked content will go here */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Fan Monetization (Mentorship, Hitting, Match Analysis)</CardTitle>
+                  <CardDescription>Advanced strategies for monetizing your expertise</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <p className="text-muted-foreground">Unlocked content coming soon...</p>
+                </CardContent>
+              </Card>
+            </LessonGate>
+          </div>
         </div>
-      </div>
+        </div>
+      </main>
     </div>
   );
 }

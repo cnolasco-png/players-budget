@@ -80,3 +80,37 @@
 - Success: `{ ok: true, message: "Successfully joined the waitlist!", id: "uuid" }`
 - Errors: `{ ok: false, error: "Error message" }` with appropriate status codes
 - Rate limit: `{ ok: false, error: "Rate limit exceeded...", resetTime: timestamp }`
+
+### ✅ FMSA Academy Course Page - COMPLETED
+**Files Created**:
+- `src/pages/FMSA.tsx` - Financial Mindset & Strategy Accelerator course page
+- `supabase/migrations/20251010_add_course_progress.sql` - Course progress tracking table
+- Updated `src/integrations/supabase/types.ts` - Added course_progress table types
+- Updated `src/App.tsx` - Added route `/academy/fmsa`
+
+**Implementation Details**:
+- **Hero Section**: Course title, description, and CTA buttons for workbook/sponsor tool downloads
+- **Progress Tracking**: Interactive chips for Day 0-5 with visual completion indicators
+- **Course Content**: Six accordion sections (Day 0-5) with Principles/Mindset, Do actions, and Proof sections
+- **Gated Content**: Fan Monetization module with `<LessonGate>` component integration
+- **Responsive Design**: Mobile-friendly layout with proper spacing and accessibility
+
+**LessonGate Component Features**:
+- **Coming Soon State**: Shows waitlist email capture, Discord link, teaser bullets, branding
+- **Pro Required State**: Shows Pro upgrade CTA with feature highlights  
+- **Unlocked State**: TODO comment for future content display
+- **Loading State**: Skeleton animation while checking module access
+- **Error Handling**: Toast notifications for API interactions
+
+**Integration Points**:
+- Uses `useModuleGate('fan-monetization')` for access control
+- Connects to `/api/waitlist` for email capture
+- Links to `/settings/billing` for Pro upgrades
+- Downloads PDFs via `generateFinancialMindsetAccelerator()` and `generateProfessionalSponsorTemplate()`
+- Course progress stored in `course_progress` table with user_id + course_id unique constraint
+
+**Accessibility Features**:
+- Focus-visible rings on interactive elements
+- Proper ARIA attributes on accordion components
+- Semantic HTML structure with headings hierarchy
+- Screen reader friendly progress indicators
