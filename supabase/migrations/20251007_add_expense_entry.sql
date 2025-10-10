@@ -16,6 +16,15 @@ CREATE TABLE IF NOT EXISTS public.expense_entries (
   notes text
 );
 
+-- Add date column if it doesn't exist
+ALTER TABLE public.expense_entries ADD COLUMN IF NOT EXISTS date date;
+
+-- Update existing records to have today's date if date is null
+UPDATE public.expense_entries SET date = CURRENT_DATE WHERE date IS NULL;
+
+-- Make date required after updating existing records
+ALTER TABLE public.expense_entries ALTER COLUMN date SET NOT NULL;
+
 CREATE INDEX IF NOT EXISTS idx_expense_entries_user_date ON public.expense_entries(user_id, date);
 
 ALTER TABLE public.expense_entries ENABLE ROW LEVEL SECURITY;
