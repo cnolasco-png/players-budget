@@ -85,6 +85,11 @@ const IncomeManager = ({
   );
 
   const isEditing = Boolean(formState.id);
+  
+  const isFormValid = useMemo(() => {
+    const amount = Number.parseFloat(formState.amount.replace(/,/g, ""));
+    return formState.label.trim() && formState.amount.trim() && !Number.isNaN(amount) && amount > 0;
+  }, [formState.label, formState.amount]);
 
   const resetForm = () => setFormState({ ...EMPTY_FORM, currency: currency ?? "USD" });
 
@@ -118,7 +123,7 @@ const IncomeManager = ({
     }
 
     const amount = Number.parseFloat(formState.amount.replace(/,/g, ""));
-    if (Number.isNaN(amount)) {
+    if (Number.isNaN(amount) || amount <= 0) {
       return;
     }
 
@@ -288,7 +293,7 @@ const IncomeManager = ({
             <Button variant="outline" onClick={closeDialog} disabled={isSubmitting}>
               Cancel
             </Button>
-            <Button onClick={handleSubmit} disabled={isSubmitting}>
+            <Button onClick={handleSubmit} disabled={isSubmitting || !isFormValid}>
               {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
               {isEditing ? "Save changes" : "Add income"}
             </Button>

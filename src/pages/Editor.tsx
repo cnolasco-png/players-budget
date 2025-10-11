@@ -162,11 +162,24 @@ const Editor = () => {
     type: string;
   }) => {
     if (!budgetData) return;
+    
+    // Ensure amount is numeric and valid
+    const amountNum = Number(payload.amount ?? 0);
+    if (amountNum <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await incomeCreator.mutateAsync({
         budget_id: budgetData.budget.id,
         label: payload.label,
-        amount_monthly: payload.amount,
+        amount: amountNum, // Required field in income_sources table
+        amount_monthly: amountNum, // Optional field for backwards compatibility
         currency: payload.currency,
         type: payload.type,
         created_at: new Date().toISOString(),
@@ -189,11 +202,23 @@ const Editor = () => {
     id: string,
     payload: { label: string; amount: number; currency: string; type: string },
   ) => {
+    // Ensure amount is numeric and valid
+    const amountNum = Number(payload.amount ?? 0);
+    if (amountNum <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount greater than 0.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     try {
       await incomeUpdater.mutateAsync({
         id,
         label: payload.label,
-        amount_monthly: payload.amount,
+        amount: amountNum, // Required field in income_sources table
+        amount_monthly: amountNum, // Optional field for backwards compatibility
         currency: payload.currency,
         type: payload.type,
       });
