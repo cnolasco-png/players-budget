@@ -277,6 +277,7 @@ const BudgetEditor = ({
     onAddLineItem({
       scenario_id: activeScenario.id,
       category_id: categoryId,
+      amount: newItem.qty * newItem.unit_cost, // Calculate total amount
       label: newItem.label,
       qty: newItem.qty,
       unit_cost: newItem.unit_cost,
