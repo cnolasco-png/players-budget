@@ -5,6 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { Download, Clipboard, FileText } from "lucide-react";
+import usePro from "@/hooks/usePro";
 
 const ACTION_PLAN_TEXT = `
 Professional 7-Day Action Plan (Sponsor Outcomes)
@@ -55,11 +56,54 @@ async function logEvent(asset: string) {
 
 export default function SponsorDownloads() {
   const { toast } = useToast();
+  const { isPro, loading } = usePro();
 
   const copyPlan = async () => {
+    if (!isPro) { toast({ title: "Pro required", description: "Upgrade to copy the 7-day plan." }); return; }
     await navigator.clipboard.writeText(ACTION_PLAN_TEXT.trim());
     toast({ title: "Copied", description: "7-Day Action Plan copied to clipboard." });
     logEvent("action-plan-copy");
+  };
+
+  const deckHref = "/sponsor/sponsor-deck.pdf";
+  const pptxHref = "/sponsor/sponsor-deck.pptx";
+  const actionPlanPdf = "/sponsor/action-plan-pro.pdf";
+
+  const onDeckClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isPro) { e.preventDefault(); toast({ title: "Pro required", description: "Upgrade to download the deck." }); return; }
+    try {
+      // If static PDF is empty on CDN, fall back to serverless generator
+      const head = await fetch(deckHref, { method: 'HEAD' });
+      const len = Number(head.headers.get('content-length') || '0');
+      if (!head.ok || len === 0) {
+        e.preventDefault();
+        const resp = await fetch('/api/sponsor/deck');
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'sponsor-deck.pdf'; a.click();
+        URL.revokeObjectURL(url);
+      }
+      logEvent("deck-pdf");
+    } catch {}
+  };
+
+  const onPlanPdfClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isPro) { e.preventDefault(); toast({ title: "Pro required", description: "Upgrade to download the action plan." }); return; }
+    try {
+      const head = await fetch(actionPlanPdf, { method: 'HEAD' });
+      const len = Number(head.headers.get('content-length') || '0');
+      if (!head.ok || len === 0) {
+        e.preventDefault();
+        const resp = await fetch('/api/sponsor/action-plan');
+        const blob = await resp.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url; a.download = 'action-plan-pro.pdf'; a.click();
+        URL.revokeObjectURL(url);
+      }
+      logEvent("action-plan-pdf");
+    } catch {}
   };
 
   return (
@@ -91,11 +135,11 @@ export default function SponsorDownloads() {
           </div>
         </CardContent>
         <CardFooter className="gap-3 flex-wrap">
-          <Button asChild onClick={()=>logEvent("deck-pdf")}>
-            <a href="/sponsor/sponsor-deck.pdf" download><Download className="mr-2 h-4 w-4"/>Download PDF</a>
+          <Button asChild>
+            <a href={deckHref} download onClick={onDeckClick}><Download className="mr-2 h-4 w-4"/>Download PDF</a>
           </Button>
-          <Button variant="outline" asChild onClick={()=>logEvent("deck-pptx")}>
-            <a href="/sponsor/sponsor-deck.pptx" download><Download className="mr-2 h-4 w-4"/>Download PPTX</a>
+          <Button variant="outline" asChild>
+            <a href={pptxHref} download onClick={(e)=>{ if(!isPro){ e.preventDefault(); toast({ title: 'Pro required', description: 'Upgrade to download the PPTX.'}); return;} logEvent('deck-pptx'); }}><Download className="mr-2 h-4 w-4"/>Download PPTX</a>
           </Button>
         </CardFooter>
       </Card>
@@ -115,8 +159,8 @@ export default function SponsorDownloads() {
         </CardContent>
         <CardFooter className="gap-3">
           <Button onClick={copyPlan}><Clipboard className="mr-2 h-4 w-4"/>Quick Copy</Button>
-          <Button variant="outline" asChild onClick={()=>logEvent("action-plan-pdf")}>
-            <a href="/sponsor/action-plan-pro.pdf" download><Download className="mr-2 h-4 w-4"/>Download PDF</a>
+          <Button variant="outline" asChild>
+            <a href={actionPlanPdf} download onClick={onPlanPdfClick}><Download className="mr-2 h-4 w-4"/>Download PDF</a>
           </Button>
         </CardFooter>
       </Card>
