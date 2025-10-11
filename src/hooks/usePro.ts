@@ -8,6 +8,18 @@ export function usePro() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      // Check localStorage first for demo/testing purposes
+      try {
+        const localPlan = localStorage.getItem('plan');
+        if (localPlan === 'pro') {
+          if (!cancelled) { setIsPro(true); setLoading(false); }
+          return;
+        }
+      } catch (e) {
+        // ignore localStorage errors
+      }
+
+      // Fall back to database check
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setIsPro(false); setLoading(false); return; }
       const { data, error } = await supabase
