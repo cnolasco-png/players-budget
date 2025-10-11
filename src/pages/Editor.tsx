@@ -145,6 +145,7 @@ const Editor = () => {
       await handleCreate({
         scenario_id: row.scenarioId,
         category_id: defaultCategoryId,
+        amount: row.qty * row.unitCost,
         label: row.label,
         qty: row.qty,
         unit_cost: row.unitCost,
