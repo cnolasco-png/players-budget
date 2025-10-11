@@ -87,12 +87,13 @@ export default function SponsorDownloads() {
   const onDeckClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!isPro) { e.preventDefault(); toast({ title: "Pro required", description: "Upgrade to download the deck." }); return; }
     try {
-      // If static PDF is empty on CDN, fall back to serverless generator
-      const head = await fetch(deckHref, { method: 'HEAD' });
-      const len = Number(head.headers.get('content-length') || '0');
+      // If static PDF appears empty on CDN, fall back to serverless generator
+      const head = await fetch(deckHref, { method: 'HEAD', cache: 'no-store' });
+      const raw = head.headers.get('content-length');
+      const len = raw ? Number(raw) : null;
       if (!head.ok || len === 0) {
         e.preventDefault();
-        const resp = await fetch('/api/sponsor/deck');
+        const resp = await fetch('/api/sponsor/deck', { cache: 'no-store' });
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -106,11 +107,12 @@ export default function SponsorDownloads() {
   const onPlanPdfClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!isPro) { e.preventDefault(); toast({ title: "Pro required", description: "Upgrade to download the action plan." }); return; }
     try {
-      const head = await fetch(actionPlanPdf, { method: 'HEAD' });
-      const len = Number(head.headers.get('content-length') || '0');
+      const head = await fetch(actionPlanPdf, { method: 'HEAD', cache: 'no-store' });
+      const raw = head.headers.get('content-length');
+      const len = raw ? Number(raw) : null;
       if (!head.ok || len === 0) {
         e.preventDefault();
-        const resp = await fetch('/api/sponsor/action-plan');
+        const resp = await fetch('/api/sponsor/action-plan', { cache: 'no-store' });
         const blob = await resp.blob();
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -124,8 +126,9 @@ export default function SponsorDownloads() {
   const onPptxClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
     if (!isPro) { e.preventDefault(); toast({ title: 'Pro required', description: 'Upgrade to download the PPTX.'}); return; }
     try {
-      const head = await fetch(pptxHref, { method: 'HEAD' });
-      const len = Number(head.headers.get('content-length') || '0');
+      const head = await fetch(pptxHref, { method: 'HEAD', cache: 'no-store' });
+      const raw = head.headers.get('content-length');
+      const len = raw ? Number(raw) : null;
       if (!head.ok || len === 0) {
         e.preventDefault();
         toast({ title: 'File not ready', description: 'Upload sponsor-deck.pptx to public/sponsor/ and redeploy.' });
