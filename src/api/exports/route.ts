@@ -61,11 +61,7 @@ export async function exportSeasonCSV(seasonId: string): Promise<Blob> {
     // Fetch line items with scenario information
     const { data: lineItems, error: itemsError } = await supabase
       .from('line_items')
-      .select(`
-        *,
-        scenarios!inner(name, budgets!inner(id))
-      `)
-      .eq('scenarios.budgets.id', seasonId)
+      .select('*')
       .order('created_at', { ascending: false });
 
     if (itemsError) throw itemsError;
@@ -73,7 +69,7 @@ export async function exportSeasonCSV(seasonId: string): Promise<Blob> {
     // Transform data for CSV
     const transformedItems = (lineItems || []).map(item => ({
       ...item,
-      scenario_name: item.scenarios?.name || '',
+      scenario_name: '', // Scenario name not available in this query
       category: item.category_id || 'misc',
       type: 'expense' // Default type - adjust based on your schema
     }));
