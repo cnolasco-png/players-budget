@@ -5,19 +5,26 @@
 
 export async function generateProfessionalSponsorTemplate(): Promise<Blob> {
   try {
-    // Fetch the professionally designed PDF from public folder
-    const response = await fetch('/sponsor-tool.pdf');
-    
+    // Prefer the professionally designed PDF from public, fallback to serverless if missing/empty
+    let source = '/sponsor-tool.pdf';
+    try {
+      const head = await fetch(source, { method: 'HEAD' });
+      const len = Number(head.headers.get('content-length') || '0');
+      if (!head.ok || len === 0) {
+        source = '/api/sponsor/deck';
+      }
+    } catch {
+      source = '/api/sponsor/deck';
+    }
+
+    const response = await fetch(source);
     if (!response.ok) {
       throw new Error(`Failed to fetch sponsor template: ${response.status}`);
     }
-    
     const blob = await response.blob();
     return blob;
   } catch (error) {
     console.error('Error serving sponsor template PDF:', error);
-    
-    // Fallback: Return empty blob with error handling
     throw new Error('Sponsor template PDF is temporarily unavailable. Please try again later.');
   }
 }
@@ -26,16 +33,13 @@ export async function generateFinancialMindsetAccelerator(): Promise<Blob> {
   try {
     // Fetch the financial mindset accelerator workbook
     const response = await fetch('/financial-mindset-accelerator.pdf');
-    
     if (!response.ok) {
       throw new Error(`Failed to fetch financial workbook: ${response.status}`);
     }
-    
     const blob = await response.blob();
     return blob;
   } catch (error) {
     console.error('Error serving financial workbook PDF:', error);
-    
     // Fallback: Return empty blob with error handling  
     throw new Error('Financial workbook PDF is temporarily unavailable. Please try again later.');
   }

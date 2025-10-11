@@ -60,9 +60,24 @@ export default function SponsorDownloads() {
 
   const copyPlan = async () => {
     if (!isPro) { toast({ title: "Pro required", description: "Upgrade to copy the 7-day plan." }); return; }
-    await navigator.clipboard.writeText(ACTION_PLAN_TEXT.trim());
-    toast({ title: "Copied", description: "7-Day Action Plan copied to clipboard." });
-    logEvent("action-plan-copy");
+    const text = ACTION_PLAN_TEXT.trim();
+    try {
+      await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: "7-Day Action Plan copied to clipboard." });
+      logEvent("action-plan-copy");
+    } catch {
+      // Fallback for browsers blocking Clipboard API
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.left = '-9999px';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); } catch {}
+      document.body.removeChild(ta);
+      toast({ title: "Copied", description: "Plan copied using fallback." });
+      logEvent("action-plan-copy");
+    }
   };
 
   const deckHref = "/sponsor/sponsor-deck.pdf";
@@ -106,6 +121,23 @@ export default function SponsorDownloads() {
     } catch {}
   };
 
+  const onPptxClick = async (e: React.MouseEvent<HTMLAnchorElement>) => {
+    if (!isPro) { e.preventDefault(); toast({ title: 'Pro required', description: 'Upgrade to download the PPTX.'}); return; }
+    try {
+      const head = await fetch(pptxHref, { method: 'HEAD' });
+      const len = Number(head.headers.get('content-length') || '0');
+      if (!head.ok || len === 0) {
+        e.preventDefault();
+        toast({ title: 'File not ready', description: 'Upload sponsor-deck.pptx to public/sponsor/ and redeploy.' });
+        return;
+      }
+      logEvent('deck-pptx');
+    } catch {
+      e.preventDefault();
+      toast({ title: 'File not ready', description: 'Upload sponsor-deck.pptx to public/sponsor/ and redeploy.' });
+    }
+  };
+
   return (
     <div className="max-w-5xl mx-auto px-4 py-10 space-y-10">
       <div className="text-center space-y-2">
@@ -139,7 +171,7 @@ export default function SponsorDownloads() {
             <a href={deckHref} download onClick={onDeckClick}><Download className="mr-2 h-4 w-4"/>Download PDF</a>
           </Button>
           <Button variant="outline" asChild>
-            <a href={pptxHref} download onClick={(e)=>{ if(!isPro){ e.preventDefault(); toast({ title: 'Pro required', description: 'Upgrade to download the PPTX.'}); return;} logEvent('deck-pptx'); }}><Download className="mr-2 h-4 w-4"/>Download PPTX</a>
+            <a href={pptxHref} download onClick={onPptxClick}><Download className="mr-2 h-4 w-4"/>Download PPTX</a>
           </Button>
         </CardFooter>
       </Card>
@@ -155,7 +187,31 @@ export default function SponsorDownloads() {
             Use the quick copy to paste into Notes/Notion; the PDF is formatted for print/share.
           </div>
           <Separator className="my-4" />
-          <pre className="whitespace-pre-wrap text-sm">{ACTION_PLAN_TEXT.trim()}</pre>
+          {loading ? (
+            <div className="h-24 rounded-md bg-muted animate-pulse" />
+          ) : isPro ? (
+            <pre className="whitespace-pre-wrap text-sm">{ACTION_PLAN_TEXT.trim()}</pre>
+          ) : (
+            <div className="relative">
+              <div className="rounded-md border p-4 bg-muted/50">
+                <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
+                  <li>Day 1 – Positioning & Proof</li>
+                  <li>Day 2 – Assets</li>
+                  <li>Day 3 – Target List</li>
+                  <li>Day 4 – Outreach System</li>
+                  <li>Day 5 – Offers</li>
+                  <li>Day 6 – Pipeline</li>
+                  <li>Day 7 – Review & Iterate</li>
+                </ul>
+              </div>
+              <div className="absolute inset-0 rounded-md backdrop-blur-sm bg-background/50 grid place-items-center">
+                <div className="text-center text-sm">
+                  <div className="font-medium">Pro only</div>
+                  <div className="text-muted-foreground">Upgrade to view the full 7-day plan</div>
+                </div>
+              </div>
+            </div>
+          )}
         </CardContent>
         <CardFooter className="gap-3">
           <Button onClick={copyPlan}><Clipboard className="mr-2 h-4 w-4"/>Quick Copy</Button>
