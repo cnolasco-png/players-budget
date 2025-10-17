@@ -590,8 +590,8 @@ const Settings = () => {
             <div className={import.meta.env.VITE_SUPABASE_URL ? 'text-green-500' : 'text-red-500'}>
               {import.meta.env.VITE_SUPABASE_URL ? '✓ VITE_SUPABASE_URL set' : '✗ VITE_SUPABASE_URL missing'}
             </div>
-            <div className={import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'text-green-500' : 'text-red-500'}>
-              {import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? '✓ VITE_SUPABASE_ANON_KEY set' : '✗ VITE_SUPABASE_ANON_KEY missing'}
+            <div className={import.meta.env.VITE_SUPABASE_ANON_KEY ? 'text-green-500' : 'text-red-500'}>
+              {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ VITE_SUPABASE_ANON_KEY set' : '✗ VITE_SUPABASE_ANON_KEY missing'}
             </div>
           </div>
         </Card>

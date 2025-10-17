@@ -10,7 +10,7 @@ export default async (req: any, res: any) => {
     const level = (url.searchParams.get('level') || 'ATP/WTA');
     const year = Number(url.searchParams.get('year') || new Date().getFullYear());
 
-    const supabaseUrl = process.env.VITE_SUPABASE_URL;
+    const supabaseUrl = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !serviceKey) {
       return res.status(500).json({ error: 'Missing SUPABASE_SERVICE_ROLE_KEY or VITE_SUPABASE_URL' });

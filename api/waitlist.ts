@@ -1,5 +1,9 @@
 import { createClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY ?? process.env.VITE_SUPABASE_ANON_KEY;
+
 // In-memory rate limiting (TODO: Replace with Upstash Redis for production)
 const rateLimitMap = new Map<string, { count: number; resetTime: number }>();
 const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
@@ -151,10 +155,18 @@ export const handler = async (req: any, res: any) => {
       return;
     }
 
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      res.status(500).json({
+        ok: false,
+        error: 'Missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY'
+      });
+      return;
+    }
+
     // Create server-side Supabase client for secure operations
     const supabaseServer = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      SUPABASE_URL,
+      SUPABASE_SERVICE_ROLE_KEY,
       {
         auth: {
           autoRefreshToken: false,
@@ -172,15 +184,17 @@ export const handler = async (req: any, res: any) => {
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
         
-        // Create client-side supabase instance to verify token
-        const supabaseClient = createClient(
-          process.env.NEXT_PUBLIC_SUPABASE_URL!,
-          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-        );
-        
-        const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
-        if (!authError && user) {
-          userId = user.id;
+        if (SUPABASE_ANON_KEY) {
+          // Create client-side supabase instance to verify token
+          const supabaseClient = createClient(
+            SUPABASE_URL,
+            SUPABASE_ANON_KEY
+          );
+          
+          const { data: { user }, error: authError } = await supabaseClient.auth.getUser(token);
+          if (!authError && user) {
+            userId = user.id;
+          }
         }
       }
     } catch (authError) {

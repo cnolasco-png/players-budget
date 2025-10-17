@@ -11,6 +11,8 @@ Required (client and server):
 - VITE_APP_NAME — app display name
 - VITE_SUPABASE_URL — your Supabase project URL
 - VITE_SUPABASE_ANON_KEY — public anon key for client
+- SUPABASE_URL — same Supabase project URL for serverless functions
+- SUPABASE_SERVICE_ROLE_KEY — service role key for server-side updates (never expose to the client)
 - DATABASE_URL — (internal DB if used)
 
 Stripe (server and client):
@@ -18,6 +20,7 @@ Stripe (server and client):
 - VITE_STRIPE_PUBLISHABLE_KEY — Stripe publishable key (client)
 - STRIPE_SECRET_KEY — Stripe secret key (server only, keep secret)
 - STRIPE_PRICE_ID_PRO — Stripe Price ID for the Pro subscription (price_xxx)
+- STRIPE_WEBHOOK_SECRET — signing secret for the `/api/stripe/webhook` endpoint (whsec_xxx)
 - SITE_URL — public URL for redirects (e.g. https://your-site.com or http://localhost:3000)
 
 Optional:
@@ -27,7 +30,7 @@ Optional:
 
 Supabase server-only:
 
-- SUPABASE_SERVICE_ROLE_KEY — service role key for server-side updates (never expose in client)
+- SUPABASE_ANON_KEY — optional helper for server utilities (falls back to VITE_SUPABASE_ANON_KEY)
 
 ## Database Migration
 
@@ -84,6 +87,8 @@ Environment variables (required for server functions):
 
 - SUPABASE_URL — Supabase project URL (server)
 - SUPABASE_SERVICE_ROLE_KEY — service role key (server-only, never expose to client)
+- STRIPE_SECRET_KEY — Stripe secret key for API calls (server-only)
+- STRIPE_WEBHOOK_SECRET — signing secret for validating webhook requests
 
 Client environment variables (already in the project):
 
@@ -149,4 +154,3 @@ Notes
 
 - If you run into missing tax or FX data during QA, ensure the server env vars are configured (`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`) and that the `tax_rates_by_level` migration has been applied.
 - For faster testing, the tax endpoint can be mocked locally (see `src/lib/tax.ts` test helpers).
-

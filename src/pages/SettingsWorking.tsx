@@ -85,6 +85,32 @@ const Settings = () => {
     }
   }, [toast, userId]);
 
+  // Load user's budgets
+  const loadBudgets = useCallback(async () => {
+    if (!userId) return;
+    try {
+      const { data, error } = await supabase
+        .from("budgets")
+        .select("id, title, base_currency")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      setBudgets(data ?? []);
+
+      // Set default budget and currency
+      if (data && data.length > 0 && !expenseForm.budgetId) {
+        setExpenseForm(prev => ({
+          ...prev,
+          budgetId: data[0].id,
+          currency: data[0].base_currency ?? "USD",
+        }));
+      }
+    } catch (error: any) {
+      console.error("Failed to load budgets", error);
+    }
+  }, [userId, expenseForm.budgetId]);
+
   // Save profile data
   const handleProfileSave = async () => {
     if (!userId) return;
@@ -156,32 +182,6 @@ const Settings = () => {
       description: "Billing portal will be available soon.",
     });
   };
-
-  // Load user's budgets
-  const loadBudgets = useCallback(async () => {
-    if (!userId) return;
-    try {
-      const { data, error } = await supabase
-        .from("budgets")
-        .select("id, title, base_currency")
-        .eq("user_id", userId)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      setBudgets(data ?? []);
-      
-      // Set default budget and currency
-      if (data && data.length > 0 && !expenseForm.budgetId) {
-        setExpenseForm(prev => ({
-          ...prev,
-          budgetId: data[0].id,
-          currency: data[0].base_currency ?? "USD"
-        }));
-      }
-    } catch (error: any) {
-      console.error("Failed to load budgets", error);
-    }
-  }, [userId, expenseForm.budgetId]);
 
   // Handle expense form changes
   const handleExpenseFieldChange = (field: keyof typeof expenseForm, value: string) => {
@@ -401,8 +401,8 @@ const Settings = () => {
             <div className={import.meta.env.VITE_SUPABASE_URL ? 'text-green-500' : 'text-red-500'}>
               {import.meta.env.VITE_SUPABASE_URL ? '✓ VITE_SUPABASE_URL set' : '✗ VITE_SUPABASE_URL missing'}
             </div>
-            <div className={import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? 'text-green-500' : 'text-red-500'}>
-              {import.meta.env.VITE_SUPABASE_ANON_KEY || import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY ? '✓ VITE_SUPABASE_ANON_KEY set' : '✗ VITE_SUPABASE_ANON_KEY missing'}
+            <div className={import.meta.env.VITE_SUPABASE_ANON_KEY ? 'text-green-500' : 'text-red-500'}>
+              {import.meta.env.VITE_SUPABASE_ANON_KEY ? '✓ VITE_SUPABASE_ANON_KEY set' : '✗ VITE_SUPABASE_ANON_KEY missing'}
             </div>
           </div>
         </Card>
