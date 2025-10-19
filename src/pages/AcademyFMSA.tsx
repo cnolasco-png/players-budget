@@ -13,6 +13,35 @@ function Lesson({ title, children }: { title: string; children: React.ReactNode 
 
 export default function AcademyFMSA() {
   const gate = useModuleGate("fan-monetization");
+  const [submitting, setSubmitting] = useState(false);
+
+  const handleWaitlistSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const emailValue = formData.get("email");
+    if (typeof emailValue !== "string" || !emailValue.trim()) return;
+
+    try {
+      setSubmitting(true);
+      const response = await fetch("/api/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ moduleSlug: "fan-monetization", email: emailValue }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to join waitlist");
+      }
+
+      alert("We’ll notify you at launch.");
+      event.currentTarget.reset();
+    } catch (error) {
+      console.error("Failed to join waitlist", error);
+      alert("We couldn't add you right now. Please try again later.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="mx-auto max-w-3xl p-6">
@@ -47,9 +76,11 @@ export default function AcademyFMSA() {
           <div className="text-sm">
             <div className="inline-block px-2 py-1 bg-yellow-100 rounded mb-2">{gate.reason === "pro_required" ? "Pro required" : "Coming soon"}</div>
             <p className="mb-2">Turn 100–200 true fans into predictable income with Player X (powered by WolfPro).</p>
-            <form method="post" action="/api/waitlist" onSubmit={(e)=>{e.preventDefault(); fetch("/api/waitlist",{method:"POST",headers:{'Content-Type':'application/json'},body:JSON.stringify({ moduleSlug:"fan-monetization", email:(e.currentTarget as any).email.value })}).then(()=>alert("We’ll notify you at launch."));}}>
+            <form method="post" action="/api/waitlist" onSubmit={handleWaitlistSubmit}>
               <input className="input mr-2" name="email" type="email" required placeholder="you@email.com" />
-              <button className="btn" type="submit">Notify me</button>
+              <button className="btn" type="submit" disabled={submitting}>
+                {submitting ? "Sending..." : "Notify me"}
+              </button>
             </form>
             <a className="btn mt-2" href="https://discord.gg/" target="_blank">Join Discord</a>
             <p className="mt-2 text-xs text-muted-foreground">Powered by WolfPro · Player X</p>

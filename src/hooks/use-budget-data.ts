@@ -20,6 +20,9 @@ export interface BudgetData {
   categories: CategoryRecord[];
 }
 
+const budgetDataKey = (budgetId?: string) => ["budget-data", budgetId] as const;
+type BudgetDataCache = BudgetData | null;
+
 async function fetchBudgetList(userId?: string) {
   if (!userId) return [];
   const { data, error } = await supabase
@@ -97,7 +100,7 @@ async function updateLineItem(input: Partial<LineItemRecord> & { id: string }) {
     .update(values)
     .eq("id", id)
     .select()
-    .single();
+    .single<LineItemRecord>();
 
   if (error) throw error;
   return data;
@@ -105,14 +108,14 @@ async function updateLineItem(input: Partial<LineItemRecord> & { id: string }) {
 
 async function createLineItem(input: LineItemInsert) {
   const payload = { ...input };
-  const { data, error } = await supabase.from("line_items").insert(payload).select().single();
+  const { data, error } = await supabase.from("line_items").insert(payload).select().single<LineItemRecord>();
   if (error) throw error;
   return data;
 }
 
 async function createIncome(input: IncomeInsert) {
   const payload = { ...input };
-  const { data, error } = await supabase.from("income_sources").insert(payload).select().single();
+  const { data, error } = await supabase.from("income_sources").insert(payload).select().single<IncomeRecord>();
   if (error) throw error;
   return data;
 }
@@ -124,7 +127,7 @@ async function updateIncome(input: Partial<IncomeRecord> & { id: string }) {
     .update(values)
     .eq("id", id)
     .select()
-    .single();
+    .single<IncomeRecord>();
 
   if (error) throw error;
   return data;
@@ -137,7 +140,7 @@ async function deleteIncome(id: string) {
 
 async function createExpense(input: ExpenseInsert) {
   const payload = { ...input };
-  const { data, error } = await supabase.from("expense_entries").insert(payload).select().single();
+  const { data, error } = await supabase.from("expense_entries").insert(payload).select().single<ExpenseRecord>();
   if (error) throw error;
   return data;
 }
@@ -149,7 +152,7 @@ async function updateExpense(input: Partial<ExpenseRecord> & { id: string }) {
     .update(values)
     .eq("id", id)
     .select()
-    .single();
+    .single<ExpenseRecord>();
 
   if (error) throw error;
   return data;
@@ -170,7 +173,7 @@ export function useBudgetList(userId?: string) {
 
 export function useBudgetData(budgetId?: string) {
   return useQuery({
-    queryKey: ["budget-data", budgetId],
+    queryKey: budgetDataKey(budgetId),
     queryFn: () => fetchBudgetData(budgetId),
     enabled: Boolean(budgetId),
   });
@@ -182,10 +185,10 @@ export function useLineItemUpdater(budgetId?: string) {
   return useMutation({
     mutationFn: updateLineItem,
     onMutate: async (newValues) => {
-      await queryClient.cancelQueries({ queryKey: ["budget-data", budgetId] });
-      const previousData = queryClient.getQueryData(["budget-data", budgetId]);
+      await queryClient.cancelQueries({ queryKey: budgetDataKey(budgetId) });
+      const previousData = queryClient.getQueryData<BudgetDataCache>(budgetDataKey(budgetId));
 
-      queryClient.setQueryData(["budget-data", budgetId], (old: any) => {
+      queryClient.setQueryData<BudgetDataCache>(budgetDataKey(budgetId), (old) => {
         if (!old) return old;
         return {
           ...old,
@@ -199,11 +202,11 @@ export function useLineItemUpdater(budgetId?: string) {
     },
     onError: (_error, _values, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["budget-data", budgetId], context.previousData);
+        queryClient.setQueryData(budgetDataKey(budgetId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+      queryClient.invalidateQueries({ queryKey: budgetDataKey(budgetId) });
     },
   });
 }
@@ -237,14 +240,14 @@ export function useIncomeUpdater(budgetId?: string) {
   return useMutation({
     mutationFn: updateIncome,
     onMutate: async (newValues) => {
-      await queryClient.cancelQueries({ queryKey: ["budget-data", budgetId] });
-      const previousData = queryClient.getQueryData(["budget-data", budgetId]);
+      await queryClient.cancelQueries({ queryKey: budgetDataKey(budgetId) });
+      const previousData = queryClient.getQueryData<BudgetDataCache>(budgetDataKey(budgetId));
 
-      queryClient.setQueryData(["budget-data", budgetId], (old: any) => {
+      queryClient.setQueryData<BudgetDataCache>(budgetDataKey(budgetId), (old) => {
         if (!old) return old;
         return {
           ...old,
-          incomes: old.incomes.map((income: IncomeRecord) =>
+          incomes: old.incomes.map((income) =>
             income.id === newValues.id ? { ...income, ...newValues } : income,
           ),
         };
@@ -254,11 +257,11 @@ export function useIncomeUpdater(budgetId?: string) {
     },
     onError: (_error, _values, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["budget-data", budgetId], context.previousData);
+        queryClient.setQueryData(budgetDataKey(budgetId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+      queryClient.invalidateQueries({ queryKey: budgetDataKey(budgetId) });
     },
   });
 }
@@ -269,7 +272,7 @@ export function useIncomeRemover(budgetId?: string) {
   return useMutation({
     mutationFn: deleteIncome,
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+      await queryClient.invalidateQueries({ queryKey: budgetDataKey(budgetId) });
     },
   });
 }
@@ -280,8 +283,8 @@ export function useExpenseCreator(budgetId?: string) {
   return useMutation({
     mutationFn: createExpense,
     onSuccess: async (_data, variables) => {
-      const b = (variables as any).budget_id ?? budgetId;
-      await queryClient.invalidateQueries({ queryKey: ["budget-data", b] });
+      const targetBudgetId = variables.budget_id ?? budgetId;
+      await queryClient.invalidateQueries({ queryKey: budgetDataKey(targetBudgetId) });
     },
   });
 }
@@ -291,28 +294,18 @@ export function useExpenseUpdater(budgetId?: string) {
 
   return useMutation({
     mutationFn: updateExpense,
-    onMutate: async (newValues) => {
-      await queryClient.cancelQueries({ queryKey: ["budget-data", budgetId] });
-      const previousData = queryClient.getQueryData(["budget-data", budgetId]);
-
-      queryClient.setQueryData(["budget-data", budgetId], (old: any) => {
-        if (!old) return old;
-        return {
-          ...old,
-          // reflect change in expense list if present
-          // expenses are not part of budget-data by default; we still invalidate after
-        };
-      });
-
+    onMutate: async () => {
+      await queryClient.cancelQueries({ queryKey: budgetDataKey(budgetId) });
+      const previousData = queryClient.getQueryData<BudgetDataCache>(budgetDataKey(budgetId));
       return { previousData };
     },
     onError: (_error, _values, context) => {
       if (context?.previousData) {
-        queryClient.setQueryData(["budget-data", budgetId], context.previousData);
+        queryClient.setQueryData(budgetDataKey(budgetId), context.previousData);
       }
     },
     onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+      queryClient.invalidateQueries({ queryKey: budgetDataKey(budgetId) });
     },
   });
 }
@@ -323,7 +316,7 @@ export function useExpenseRemover(budgetId?: string) {
   return useMutation({
     mutationFn: deleteExpense,
     onSuccess: async (_data, variables) => {
-      await queryClient.invalidateQueries({ queryKey: ["budget-data", budgetId] });
+      await queryClient.invalidateQueries({ queryKey: budgetDataKey(budgetId) });
     },
   });
 }
@@ -332,7 +325,11 @@ export function useExpenseRemover(budgetId?: string) {
 export async function fetchExpenses(budgetId?: string, month?: string | null) {
   if (!budgetId) return [];
 
-  let query = supabase.from('expense_entries').select('*').eq('budget_id', budgetId).order('date', { ascending: false });
+  let query = supabase
+    .from('expense_entries')
+    .select('*')
+    .eq('budget_id', budgetId)
+    .order('date', { ascending: false });
 
   if (month) {
     // month expected as YYYY-MM
@@ -345,7 +342,7 @@ export async function fetchExpenses(budgetId?: string, month?: string | null) {
 
   const { data, error } = await query;
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as ExpenseRecord[];
 }
 
 export function useExpenses(budgetId?: string, month?: string | null) {

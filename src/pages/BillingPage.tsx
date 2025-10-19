@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
+import UpgradeLink from "@/components/UpgradeLink";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -10,6 +11,7 @@ import {
   CreditCard, ExternalLink, AlertTriangle, Calendar, 
   Check, Crown, Zap, ArrowLeft
 } from "lucide-react";
+import type { Database } from "@/integrations/supabase/types";
 
 interface BillingStatus {
   plan: 'free' | 'pro_monthly' | 'pro_yearly';
@@ -19,28 +21,22 @@ interface BillingStatus {
   pastDue?: boolean;
 }
 
+const MOCK_BILLING_STATUS: BillingStatus = {
+  plan: "pro_monthly",
+  status: "active",
+  currentPeriodEnd: "2024-03-15",
+  cancelAtPeriodEnd: false,
+  pastDue: false,
+};
+
 const BillingPage = () => {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
   const [billingStatus, setBillingStatus] = useState<BillingStatus | null>(null);
   const [loading, setLoading] = useState(true);
+  const [portalLoading, setPortalLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Mock billing data - replace with real Stripe integration
-  const mockBillingStatus: BillingStatus = {
-    plan: 'pro_monthly',
-    status: 'active',
-    currentPeriodEnd: '2024-03-15',
-    cancelAtPeriodEnd: false,
-    pastDue: false
-  };
-
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -49,68 +45,72 @@ const BillingPage = () => {
         return;
       }
 
-      setUser(session.user);
-
       // Fetch profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("role")
         .eq("id", session.user.id)
-        .maybeSingle();
+        .maybeSingle<Pick<Database["public"]["Tables"]["profiles"]["Row"], "role">>();
 
-      setProfile(profileData);
+      if (profileError) {
+        throw profileError;
+      }
       
       // Set mock billing status based on profile
       if (profileData?.role === 'pro') {
-        setBillingStatus(mockBillingStatus);
+        setBillingStatus(MOCK_BILLING_STATUS);
       } else {
         setBillingStatus({ plan: 'free', status: 'active' });
       }
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading billing:", error);
+      const message = error instanceof Error ? error.message : "Please try again later.";
       toast({
         title: "Error loading billing information",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
+  }, [navigate, toast]);
+
+  useEffect(() => {
+    void checkUser();
+  }, [checkUser]);
+
+  const handleManageBilling = async () => {
+    try {
+      setPortalLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth?next=/billing");
+        return;
+      }
+
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const body = (await response.json()) as { url?: string; error?: string };
+      if (!response.ok || !body?.url) throw new Error(body?.error || "Unable to open billing portal");
+      window.location.href = body.url;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again later.";
+      toast({
+        title: "Portal unavailable",
+        description: message,
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
-  const handleUpgradeMonthly = () => {
-    const monthlyUrl = "https://buy.stripe.com/00w4gz1hC9kh0kS6TqbfO04";
-    window.open(monthlyUrl, "_blank", "noopener,noreferrer");
-    
-    toast({
-      title: "Redirecting to Stripe",
-      description: "Complete your upgrade to Pro Court membership.",
-    });
-  };
-
-  const handleUpgradeYearly = () => {
-    const yearlyUrl = "https://buy.stripe.com/5kQ4gz1hCeEB8RofpWbfO05";
-    window.open(yearlyUrl, "_blank", "noopener,noreferrer");
-    
-    toast({
-      title: "Redirecting to Stripe",
-      description: "Complete your upgrade to Pro Court membership.",
-    });
-  };
-
-  const handleManageBilling = () => {
-    // Use environment variable or fallback to placeholder  
-    const stripePortalUrl = import.meta.env.VITE_STRIPE_BILLING_PORTAL_URL || "https://billing.stripe.com/p/login/your-portal-link";
-    window.open(stripePortalUrl, "_blank", "noopener,noreferrer");
-    
-    toast({
-      title: "Opening billing portal",
-      description: "Manage your subscription and billing details.",
-    });
-  };
-
-  const getPlanDetails = (plan: string) => {
+  const getPlanDetails = (plan: BillingStatus["plan"] | "free") => {
     switch (plan) {
       case 'pro_monthly':
         return { name: 'Pro Court Monthly', price: '$2.99/month', color: 'bg-emerald-600' };
@@ -272,10 +272,12 @@ const BillingPage = () => {
                       <li className="flex items-center gap-2"><Check className="w-4 h-4" />Sponsor presentations</li>
                       <li className="flex items-center gap-2"><Check className="w-4 h-4" />Priority support</li>
                     </ul>
-                    <Button onClick={handleUpgradeMonthly} className="w-full shadow-md font-medium">
-                      Start Monthly
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </Button>
+                    <UpgradeLink asChild interval="monthly" source="billing_page_monthly_card">
+                      <Button className="w-full shadow-md font-medium">
+                        Start Monthly
+                        <ExternalLink className="ml-2 h-4 w-4" />
+                      </Button>
+                    </UpgradeLink>
                   </div>
                 </div>
 
@@ -295,10 +297,12 @@ const BillingPage = () => {
                       <li className="flex items-center gap-2"><Check className="w-4 h-4" />Multi-season analytics</li>
                       <li className="flex items-center gap-2"><Check className="w-4 h-4" />Custom branding</li>
                     </ul>
-                    <Button onClick={handleUpgradeYearly} variant="gold" className="w-full shadow-md font-medium">
-                      Start Annual
-                      <ExternalLink className="ml-2 h-4 w-4" />
-                    </Button>
+                    <UpgradeLink asChild interval="yearly" source="billing_page_yearly_card">
+                      <Button variant="gold" className="w-full shadow-md font-medium">
+                        Start Annual
+                        <ExternalLink className="ml-2 h-4 w-4" />
+                      </Button>
+                    </UpgradeLink>
                   </div>
                 </div>
               </div>
@@ -326,15 +330,16 @@ const BillingPage = () => {
                 </Button>
                 
                 {billingStatus?.plan === 'pro_monthly' && (
-                  <Button 
-                    onClick={handleUpgradeYearly}
-                    variant="gold"
-                    className="flex-1 shadow-md font-medium"
-                  >
-                    <Crown className="mr-2 h-4 w-4" />
-                    Upgrade to Annual
-                    <ExternalLink className="ml-2 h-4 w-4" />
-                  </Button>
+                  <UpgradeLink asChild interval="yearly" source="billing_page_upgrade_to_annual">
+                    <Button 
+                      variant="gold"
+                      className="flex-1 shadow-md font-medium"
+                    >
+                      <Crown className="mr-2 h-4 w-4" />
+                      Upgrade to Annual
+                      <ExternalLink className="ml-2 h-4 w-4" />
+                    </Button>
+                  </UpgradeLink>
                 )}
               </div>
               

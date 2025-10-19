@@ -4,6 +4,7 @@ import type { ExportPayload } from "@/lib/exportUtils";
 import { exportBudgetToCsv, exportBudgetToPdf, exportSponsorPackPdf } from "@/lib/exportUtils";
 import { ArrowDownToLine, FileText } from "lucide-react";
 import { useState } from "react";
+import UpgradeLink from "@/components/UpgradeLink";
 
 interface ExportButtonsProps extends ExportPayload {
   isProUser?: boolean;
@@ -16,19 +17,8 @@ const ExportButtons = ({ budget, scenarios, lineItems, incomes, isProUser = fals
   const [shouldRetryPdf, setShouldRetryPdf] = useState(false);
   const [shouldRetrySponsor, setShouldRetrySponsor] = useState(false);
 
-  const notifyProOnly = (feature: string) => {
-    toast({
-      title: "Pro feature",
-      description: `${feature} exports are available on the Pro plan. Upgrade to unlock sponsor-ready downloads.`,
-    });
-  };
-
   const handleCsvExport = () => {
     setShouldRetryCsv(false);
-    if (!isProUser) {
-      notifyProOnly("CSV");
-      return;
-    }
     try {
       exportBudgetToCsv({ budget, scenarios, lineItems, incomes });
       toast({
@@ -51,10 +41,6 @@ const ExportButtons = ({ budget, scenarios, lineItems, incomes, isProUser = fals
     try {
       setLoadingAction("pdf");
       setShouldRetryPdf(false);
-      if (!isProUser) {
-        notifyProOnly("PDF");
-        return;
-      }
       await exportBudgetToPdf({ budget, scenarios, lineItems, incomes });
       toast({
         title: "PDF generated",
@@ -78,10 +64,6 @@ const ExportButtons = ({ budget, scenarios, lineItems, incomes, isProUser = fals
     try {
       setLoadingAction("sponsor");
       setShouldRetrySponsor(false);
-      if (!isProUser) {
-        notifyProOnly("Sponsor pack");
-        return;
-      }
       await exportSponsorPackPdf({ budget, scenarios, lineItems, incomes });
       toast({
         title: "Sponsor pack ready",
@@ -128,36 +110,43 @@ const ExportButtons = ({ budget, scenarios, lineItems, incomes, isProUser = fals
         </div>
       )}
       <div className="flex flex-wrap gap-3">
-        <Button
-          variant="outline"
-          onClick={handleCsvExport}
-          aria-disabled={!isProUser}
-          className={isProUser ? undefined : "opacity-60 hover:opacity-50"}
-        >
-          <ArrowDownToLine className="mr-2 h-4 w-4" /> Export CSV
-        </Button>
-        <Button
-          variant="gold"
-          onClick={handlePdfExport}
-          disabled={loadingAction === "pdf"}
-          aria-disabled={!isProUser}
-          className={isProUser ? undefined : "opacity-60 hover:opacity-50"}
-        >
-          <FileText className="mr-2 h-4 w-4" />
-          {loadingAction === "pdf" ? "Generating..." : "Export PDF (Pro)"}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={handleSponsorPack}
-          disabled={loadingAction === "sponsor"}
-          aria-disabled={!isProUser}
-          className={isProUser ? undefined : "opacity-60 hover:opacity-50"}
-        >
-          {loadingAction === "sponsor" ? "Building pack..." : "Sponsor pack (Pro)"}
-        </Button>
+        {isProUser ? (
+          <Button variant="outline" onClick={handleCsvExport}>
+            <ArrowDownToLine className="mr-2 h-4 w-4" /> Export CSV
+          </Button>
+        ) : (
+          <Button variant="outline" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_export" className="inline-flex items-center gap-2">
+              <ArrowDownToLine className="mr-2 h-4 w-4" /> Upgrade to export CSV
+            </UpgradeLink>
+          </Button>
+        )}
+        {isProUser ? (
+          <Button variant="gold" onClick={handlePdfExport} disabled={loadingAction === "pdf"}>
+            <FileText className="mr-2 h-4 w-4" />
+            {loadingAction === "pdf" ? "Generating..." : "Export PDF"}
+          </Button>
+        ) : (
+          <Button variant="gold" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_export" className="inline-flex items-center gap-2">
+              <FileText className="mr-2 h-4 w-4" /> Upgrade to export PDF
+            </UpgradeLink>
+          </Button>
+        )}
+        {isProUser ? (
+          <Button variant="outline" onClick={handleSponsorPack} disabled={loadingAction === "sponsor"}>
+            {loadingAction === "sponsor" ? "Building pack..." : "Sponsor pack"}
+          </Button>
+        ) : (
+          <Button variant="outline" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_export" className="inline-flex items-center gap-2">
+              Sponsor pack (Pro)
+            </UpgradeLink>
+          </Button>
+        )}
       </div>
       {!isProUser && (
-        <p className="text-xs text-primary/70">Renew Pro to download sponsor-ready sheets.</p>
+        <p className="text-xs text-primary/70">Upgrade to Pro for sponsor-ready exports and reporting.</p>
       )}
     </div>
   );

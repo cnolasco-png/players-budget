@@ -4,10 +4,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Tooltip as UiTooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import type { ScenarioRecord } from "@/hooks/use-budget-data";
 import { compareScenarios, formatCurrency, ScenarioTotal } from "@/lib/budgetCalculations";
 import { cn } from "@/lib/utils";
 import { ResponsiveContainer, BarChart, CartesianGrid, XAxis, YAxis, Tooltip, Bar, Cell } from "recharts";
+import UpgradeLink from "@/components/UpgradeLink";
 
 interface ScenarioCompareViewProps {
   scenarioTotals: ScenarioTotal[];
@@ -15,7 +15,6 @@ interface ScenarioCompareViewProps {
   currency?: string | null;
   onBaselineChange?: (scenarioId: string) => void;
   isProUser?: boolean;
-  onUpgrade?: () => void;
 }
 
 const ScenarioCompareView = ({
@@ -24,37 +23,24 @@ const ScenarioCompareView = ({
   currency = "USD",
   onBaselineChange,
   isProUser = true,
-  onUpgrade,
 }: ScenarioCompareViewProps) => {
   const comparison = useMemo(
     () => compareScenarios(scenarioTotals, baselineScenarioId),
     [scenarioTotals, baselineScenarioId],
   );
 
-  if (!comparison.length) {
+  const hasComparison = comparison.length > 0;
+
+  const summaryId = useId();
+  const tableSummaryId = useId();
+
+  if (!hasComparison) {
     return (
       <Card className="p-6">
         <p className="text-muted-foreground">Add scenarios and line items to compare budgets.</p>
       </Card>
     );
   }
-
-  const lowest = comparison.reduce((current, entry) => (entry.total < current.total ? entry : current), comparison[0]);
-  const lowestId = lowest.id;
-
-  const chartData = comparison.map((entry) => ({
-    id: entry.id,
-    name: entry.name,
-    total: Math.round(entry.total),
-    variance: Math.round(entry.variance),
-    variancePct: entry.variancePct,
-    isBaseline: entry.id === baselineScenarioId,
-    isLowest: entry.id === lowestId,
-  }));
-
-  const baseline = comparison.find((entry) => entry.variance === 0) ?? comparison[0];
-  const summaryId = useId();
-  const tableSummaryId = useId();
 
   if (!isProUser) {
     return (
@@ -72,15 +58,32 @@ const ScenarioCompareView = ({
               </div>
             ))}
           </div>
-          <Button variant="gold" className="mt-4" onClick={onUpgrade}>
-            Unlock advanced comparisons
+          <Button variant="gold" asChild className="mt-4">
+            <UpgradeLink interval="monthly" source="gated_feature_compare" className="inline-flex items-center gap-2">
+              Unlock advanced comparisons
+            </UpgradeLink>
           </Button>
         </Card>
       </div>
     );
   }
 
-  const summaryText = useMemo(() => {
+  const lowest = comparison.reduce((current, entry) => (entry.total < current.total ? entry : current), comparison[0]);
+  const lowestId = lowest.id;
+
+  const chartData = comparison.map((entry) => ({
+    id: entry.id,
+    name: entry.name,
+    total: Math.round(entry.total),
+    variance: Math.round(entry.variance),
+    variancePct: entry.variancePct,
+    isBaseline: entry.id === baselineScenarioId,
+    isLowest: entry.id === lowestId,
+  }));
+
+  const baseline = comparison.find((entry) => entry.variance === 0) ?? comparison[0];
+
+  const summaryText = (() => {
     const scenarioCount = comparison.length;
     const lowestDelta = lowest.variance;
     const lowestDescriptor =
@@ -88,21 +91,17 @@ const ScenarioCompareView = ({
         ? "matches the baseline"
         : `${formatCurrency(Math.abs(lowestDelta), currency)} ${lowestDelta < 0 ? "below" : "above"} the baseline`;
     return `Comparing ${scenarioCount} scenarios in ${currency}. Baseline ${baseline.name} totals ${formatCurrency(baseline.total, currency)}. Lowest cost scenario ${lowest.name} ${lowestDescriptor}.`;
-  }, [baseline.name, baseline.total, comparison.length, currency, lowest.name, lowest.variance]);
+  })();
 
-  const tableSummaryText = useMemo(
-    () =>
-      comparison
-        .map((entry) => {
-          if (entry.variance === 0) {
-            return `${entry.name} is the baseline at ${formatCurrency(entry.total, currency)}.`;
-          }
-          const direction = entry.variance > 0 ? "above" : "below";
-          return `${entry.name} totals ${formatCurrency(entry.total, currency)}, which is ${formatCurrency(Math.abs(entry.variance), currency)} ${direction} baseline.`;
-        })
-        .join(" "),
-    [comparison, currency],
-  );
+  const tableSummaryText = comparison
+    .map((entry) => {
+      if (entry.variance === 0) {
+        return `${entry.name} is the baseline at ${formatCurrency(entry.total, currency)}.`;
+      }
+      const direction = entry.variance > 0 ? "above" : "below";
+      return `${entry.name} totals ${formatCurrency(entry.total, currency)}, which is ${formatCurrency(Math.abs(entry.variance), currency)} ${direction} baseline.`;
+    })
+    .join(" ");
 
   const handleBaselineChange = (scenarioId: string) => {
     if (!onBaselineChange || scenarioId === baselineScenarioId) return;

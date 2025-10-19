@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Settings as SettingsIcon, Loader2, ExternalLink, MessageCircle } from "lucide-react";
+import UpgradeLink from "@/components/UpgradeLink";
 
 const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 
@@ -27,6 +29,7 @@ const Settings = () => {
     travelsWithCoach: false,
     plan: "free",
   });
+  const [portalLoading, setPortalLoading] = useState(false);
 
   // Quick expense state
   const [budgets, setBudgets] = useState<Array<{id: string; title: string; base_currency: string | null}>>([]);
@@ -51,19 +54,7 @@ const Settings = () => {
   const planLabel = profile.plan === "pro" ? "Pro" : profile.plan === "premium" ? "Premium" : "Free";
   const isProPlan = profile.plan === "pro" || profile.plan === "premium";
 
-  const handleUpgrade = () => {
-    const checkoutUrl = import.meta.env.VITE_STRIPE_CHECKOUT_URL;
-    if (checkoutUrl) {
-      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    toast({
-      title: "Upgrade available",
-      description: "Contact support to upgrade your account.",
-    });
-  };
-
-  const handleManageBilling = () => {
+  const handleManageBilling = async () => {
     if (!isProPlan) {
       toast({
         title: "Upgrade required",
@@ -71,15 +62,32 @@ const Settings = () => {
       });
       return;
     }
-    const portalUrl = import.meta.env.VITE_STRIPE_PORTAL_URL;
-    if (portalUrl) {
-      window.open(portalUrl, "_blank", "noopener,noreferrer");
-    } else {
+
+    try {
+      setPortalLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth?next=/settings/simple");
+        return;
+      }
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const body = await response.json();
+      if (!response.ok || !body?.url) throw new Error(body?.error || "Unable to open billing portal");
+      window.location.href = body.url;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again later.";
       toast({
-        title: "Portal unavailable", 
-        description: "Billing portal is not configured yet.",
+        title: "Portal unavailable",
+        description: message,
         variant: "destructive",
       });
+    } finally {
+      setPortalLoading(false);
     }
   };
 
@@ -100,18 +108,20 @@ const Settings = () => {
       if (error) throw error;
       setBudgets(data ?? []);
       
-      // Set default budget and currency
-      if (data && data.length > 0 && !expenseForm.budgetId) {
-        setExpenseForm(prev => ({
-          ...prev,
-          budgetId: data[0].id,
-          currency: data[0].base_currency ?? "USD"
-        }));
+      if (data && data.length > 0) {
+        setExpenseForm((prev) => {
+          if (prev.budgetId) return prev;
+          return {
+            ...prev,
+            budgetId: data[0].id,
+            currency: data[0].base_currency ?? "USD",
+          };
+        });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load budgets", error);
     }
-  }, [userId, expenseForm.budgetId]);
+  }, [userId]);
 
   // Handle expense form changes
   const handleExpenseFieldChange = (field: keyof typeof expenseForm, value: string) => {
@@ -180,11 +190,12 @@ const Settings = () => {
         amount: "",
         note: "",
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to log expense", error);
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Could not log expense",
-        description: `${error.message}. Please try again.`,
+        description: `${message}. Please try again.`,
         variant: "destructive",
       });
     } finally {
@@ -204,13 +215,23 @@ const Settings = () => {
     }
 
     setFeedbackState(prev => ({ ...prev, submitting: true }));
+    const trimmedMessage = feedbackState.message.trim();
+    const trimmedEmail = feedbackState.email.trim();
+    const trimmedTopic = feedbackState.topic.trim();
+
+    const metadataTags = [
+      trimmedTopic ? `topic:${trimmedTopic}` : null,
+      trimmedEmail ? `contact:${trimmedEmail}` : null,
+    ].filter(Boolean) as string[];
+
     try {
       const { error } = await supabase.from("feedback").insert({
-        message: feedbackState.message.trim(),
-        email: feedbackState.email.trim() || null,
-        topic: feedbackState.topic.trim() || null,
         user_id: userId,
-      });
+        role: "player",
+        quote: trimmedMessage,
+        consent_publish: false,
+        tags: metadataTags.length ? metadataTags : null,
+      } as Database["public"]["Tables"]["feedback"]["Insert"]);
 
       if (error) throw error;
 
@@ -221,11 +242,12 @@ const Settings = () => {
 
       // Reset form
       setFeedbackState({ topic: "", message: "", email: "", submitting: false });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to submit feedback", error);
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Could not send feedback",
-        description: `${error.message}. Please try again.`,
+        description: `${message}. Please try again.`,
         variant: "destructive",
       });
       setFeedbackState(prev => ({ ...prev, submitting: false }));
@@ -266,11 +288,12 @@ const Settings = () => {
         travelsWithCoach: Boolean(profileData?.travels_with_coach),
         plan: profileData?.role ?? "free",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load profile", error);
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Unable to load profile",
-        description: `${error.message}. Check your connection and try again.`,
+        description: `${message}. Check your connection and try again.`,
         variant: "destructive",
       });
     } finally {
@@ -301,11 +324,12 @@ const Settings = () => {
         title: "Profile updated",
         description: "Your preferences have been saved.",
       });
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to update profile", error);
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Update failed",
-        description: `${error.message}. Check your connection and try again.`,
+        description: `${message}. Check your connection and try again.`,
         variant: "destructive",
       });
     } finally {
@@ -419,11 +443,13 @@ const Settings = () => {
               <p className="text-xl font-semibold">{planLabel}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleManageBilling}>
-                Manage billing
+              <Button variant="outline" onClick={handleManageBilling} disabled={portalLoading}>
+                {portalLoading ? "Opening portal..." : "Manage billing"}
               </Button>
-              <Button variant="gold" onClick={handleUpgrade}>
-                Upgrade to Pro
+              <Button variant="gold" asChild>
+                <UpgradeLink asChild interval="monthly" source="settings_simple_cta">
+                  <span>Upgrade to Pro</span>
+                </UpgradeLink>
               </Button>
             </div>
           </div>

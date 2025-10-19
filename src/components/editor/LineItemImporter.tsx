@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { AlertCircle } from "lucide-react";
 import type { ScenarioRecord } from "@/hooks/use-budget-data";
+import UpgradeLink from "@/components/UpgradeLink";
 
 interface ImportRow {
   scenarioId: string;
@@ -16,7 +17,6 @@ interface ImportRow {
 interface LineItemImporterProps {
   scenarios: ScenarioRecord[];
   isProUser: boolean;
-  onUpgrade?: () => void;
   onImport: (rows: ImportRow[]) => Promise<void> | void;
 }
 
@@ -38,7 +38,7 @@ const parseCsv = (text: string) => {
   return { headers, rows };
 };
 
-const LineItemImporter = ({ scenarios, isProUser, onUpgrade, onImport }: LineItemImporterProps) => {
+const LineItemImporter = ({ scenarios, isProUser, onImport }: LineItemImporterProps) => {
   const [status, setStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -51,11 +51,7 @@ const LineItemImporter = ({ scenarios, isProUser, onUpgrade, onImport }: LineIte
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = "";
-    if (!file) return;
-    if (!isProUser) {
-      onUpgrade?.();
-      return;
-    }
+    if (!file || !isProUser) return;
 
     setStatus(null);
     setError(null);
@@ -122,8 +118,10 @@ const LineItemImporter = ({ scenarios, isProUser, onUpgrade, onImport }: LineIte
           </p>
         </div>
         {!isProUser && (
-          <Button variant="gold" onClick={onUpgrade}>
-            Unlock integrations
+          <Button variant="gold" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_imports" className="inline-flex items-center gap-2">
+              Unlock integrations
+            </UpgradeLink>
           </Button>
         )}
       </div>

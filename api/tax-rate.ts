@@ -1,17 +1,29 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from '../src/integrations/supabase/types';
 
-const ALLOWED_LEVELS = ['ITF', 'Challenger', 'ATP/WTA'];
+const ALLOWED_LEVELS = ['ITF', 'Challenger', 'ATP/WTA'] as const;
+
+type Level = (typeof ALLOWED_LEVELS)[number];
+
+type TaxRateByLevelRow = {
+  default_pct: number | null;
+  year: number | null;
+};
+
+type TaxRateRow = {
+  default_pct: number | null;
+};
 
 // Vercel-style handler
-export default async function handler(req: any, res: any) {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const { query } = req;
-    const countryRaw = (query.country || req.query?.country || '').toString();
-    const levelRaw = (query.level || req.query?.level || '').toString();
-    const yearRaw = (query.year || req.query?.year || '').toString();
+    const countryRaw = (req.query?.country ?? '').toString();
+    const levelRaw = (req.query?.level ?? '').toString();
+    const yearRaw = (req.query?.year ?? '').toString();
 
-    const country = (countryRaw || '').toUpperCase().slice(0, 2);
-    const level = (levelRaw || '') as string;
+    const country = countryRaw.toUpperCase().slice(0, 2);
+    const level = levelRaw as Level;
     const year = Number(yearRaw || new Date().getFullYear());
 
     // validate
@@ -31,7 +43,7 @@ export default async function handler(req: any, res: any) {
       return res.status(500).json({ error: 'missing SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY' });
     }
 
-    const supabase = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
+    const supabase = createClient<Database>(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false } });
 
     // 1) exact match
     const { data: exact, error: exactErr } = await supabase
@@ -41,7 +53,7 @@ export default async function handler(req: any, res: any) {
       .eq('level', level)
       .eq('year', year)
       .limit(1)
-      .maybeSingle();
+      .maybeSingle<TaxRateByLevelRow>();
 
     if (exactErr) {
       console.error('tax-rate exact lookup error', exactErr);
@@ -63,9 +75,12 @@ export default async function handler(req: any, res: any) {
       .limit(1);
 
     if (prevErr) console.error('tax-rate prev lookup error', prevErr);
-    if (prev && prev.length && prev[0].default_pct != null) {
+    const prevRow = (prev as TaxRateByLevelRow[] | null)?.[0];
+    if (prevRow && prevRow.default_pct != null) {
       res.setHeader('Cache-Control', 'public, max-age=3600');
-      return res.status(200).json({ pct: Number(prev[0].default_pct), source: 'tax_rates_by_level:nearest', country, level, year: prev[0].year });
+      return res
+        .status(200)
+        .json({ pct: Number(prevRow.default_pct), source: 'tax_rates_by_level:nearest', country, level, year: prevRow.year });
     }
 
     // 3) fallback to tax_rates table (country-level default)
@@ -74,7 +89,7 @@ export default async function handler(req: any, res: any) {
       .select('default_pct')
       .eq('country', country)
       .limit(1)
-      .maybeSingle();
+      .maybeSingle<TaxRateRow>();
 
     if (cdErr) console.error('tax-rate countryDefault error', cdErr);
     if (countryDefault && countryDefault.default_pct != null) {
@@ -85,8 +100,9 @@ export default async function handler(req: any, res: any) {
     // not found
     res.setHeader('Cache-Control', 'public, max-age=3600');
     return res.status(200).json({ pct: null, source: 'missing', country, level, year });
-  } catch (err: any) {
+  } catch (err) {
     console.error('tax-rate handler error', err);
-    return res.status(500).json({ error: err?.message ?? 'unknown' });
+    const message = err instanceof Error ? err.message : 'unknown';
+    return res.status(500).json({ error: message });
   }
 }

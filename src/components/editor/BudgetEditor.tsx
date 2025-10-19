@@ -148,9 +148,10 @@ const BudgetEditor = ({
         try {
           await onUpdateLineItem({ id, ...payload } as Partial<LineItemRecord> & { id: string });
           setSavedStatus((prev) => ({ ...prev, [id]: { ok: true } }));
-          try { toast({ title: "Saved" }); } catch {}
-        } catch (err: any) {
-          setSavedStatus((prev) => ({ ...prev, [id]: { ok: false, message: err?.message ?? "Save failed" } }));
+          toast({ title: "Saved" });
+        } catch (error: unknown) {
+          const message = error instanceof Error && error.message ? error.message : "Save failed";
+          setSavedStatus((prev) => ({ ...prev, [id]: { ok: false, message } }));
         }
         // clear success after a short delay
         setTimeout(() => {
@@ -468,8 +469,9 @@ const BudgetEditor = ({
                 // show saved toast
                 toast({ title: "Saved" });
                 setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: true } }));
-              } catch (err: any) {
-                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message: err?.message ?? 'Save failed' } }));
+              } catch (error: unknown) {
+                const message = error instanceof Error && error.message ? error.message : "Save failed";
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message } }));
               } finally {
                 clearDraftValue(item.id, "qty");
                 resolvePendingFocus();
@@ -516,8 +518,9 @@ const BudgetEditor = ({
                 await onUpdateLineItem({ id: item.id, unit_cost: value });
                 toast({ title: "Saved" });
                 setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: true } }));
-              } catch (err: any) {
-                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message: err?.message ?? 'Save failed' } }));
+              } catch (error: unknown) {
+                const message = error instanceof Error && error.message ? error.message : "Save failed";
+                setSavedStatus((prev) => ({ ...prev, [item.id]: { ok: false, message } }));
               } finally {
                 clearDraftValue(item.id, "unit_cost");
                 resolvePendingFocus();

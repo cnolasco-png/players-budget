@@ -19,14 +19,12 @@ Stripe (server and client):
 
 - VITE_STRIPE_PUBLISHABLE_KEY — Stripe publishable key (client)
 - STRIPE_SECRET_KEY — Stripe secret key (server only, keep secret)
-- STRIPE_PRICE_ID_PRO — Stripe Price ID for the Pro subscription (price_xxx)
+- STRIPE_PRICE_ID_PRO_MONTHLY — Stripe Price ID for the monthly Pro subscription (price_xxx)
+- STRIPE_PRICE_ID_PRO_YEARLY — Stripe Price ID for the annual Pro subscription (price_xxx)
+- STRIPE_SUCCESS_URL — redirect URL after a successful checkout (e.g. https://your-site.com/thanks)
+- STRIPE_CANCEL_URL — redirect URL when checkout is cancelled (e.g. https://your-site.com/pricing)
 - STRIPE_WEBHOOK_SECRET — signing secret for the `/api/stripe/webhook` endpoint (whsec_xxx)
 - SITE_URL — public URL for redirects (e.g. https://your-site.com or http://localhost:3000)
-
-Optional:
-
-- VITE_STRIPE_CHECKOUT_URL — if you proxy or use a custom checkout endpoint
-- VITE_STRIPE_PORTAL_URL — Stripe Customer Portal URL
 
 Supabase server-only:
 
@@ -56,8 +54,9 @@ This will create the `public.expense_entries` table, index, and row-level securi
 
 ## Stripe flow (dev)
 
-- The frontend `Pricing` page posts to `/api/create-checkout-session` to create a Stripe Checkout session. The server endpoint returns `{ url }` and the frontend redirects the user.
-- After completing checkout, Stripe redirects to `SITE_URL/claim?session_id={CHECKOUT_SESSION_ID}`. The `Claim` page then POSTs the `session_id` to `/api/claim-stripe` which verifies the Stripe session and updates the Supabase `profiles` row to set `plan='pro'` using the `SUPABASE_SERVICE_ROLE_KEY`.
+- The frontend upgrade buttons use `<UpgradeLink>` which POSTs to `/api/stripe/checkout`. That endpoint validates the Supabase session, creates or reuses a Stripe customer, logs a row in `checkout_sessions`, and returns the hosted checkout URL.
+- Stripe redirects back to `STRIPE_SUCCESS_URL` (or `/thanks` on the site) when payment succeeds. A webhook at `/api/stripe/webhook` listens to `checkout.session.completed` and subscription lifecycle events to update `checkout_sessions.status`, upsert `user_subscriptions`, and flag `profiles.pro` plus `plan_interval`.
+- Customers can manage their subscription through `/api/stripe/portal`, which creates a session for the Stripe billing portal using the stored `stripe_customer_id`.
 
 ## Important
 
@@ -154,3 +153,14 @@ Notes
 
 - If you run into missing tax or FX data during QA, ensure the server env vars are configured (`SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_URL`) and that the `tax_rates_by_level` migration has been applied.
 - For faster testing, the tax endpoint can be mocked locally (see `src/lib/tax.ts` test helpers).
+
+## Feedback & Social Proof
+
+Player's Budget now captures testimonials and activation proof to boost homepage conversion.
+
+- Floating `FeedbackButton` keeps a 60-second form available across the app. `QuickFeedbackSheet` collects role, NPS, key win, quote, optional media, and consent toggles, sending to the `feedback` table (status defaults to `pending`).
+- `ActivationSurveyForm` appears after an activation is logged, capturing attendees, QR scans, redemptions, signups, and a one-line outcome. Submissions create feedback records tagged with metrics so you never forget to gather proof.
+- `/feedback/new?token=...` provides a lightweight public page for sponsors to send quotes or video without logging in. Tokens are stored in `feedback_tokens` and validated server-side.
+- Admins moderate in `<FeedbackQueue/>`; approving updates `feedback.status='approved'` and refreshes homepage stats. Rejections keep the quote private.
+- Public homepage pulls approved feedback plus rollup metrics (`homepage_stats`). Components `SocialProofStrip`, `TestimonialsCarousel`, `ProofMasonry`, and `SchemaInjector` auto-render social proof and emit Review schema for SEO. A/B flag `homepage_blur_unlock` controls whether the last cards are blurred with an upgrade CTA.
+- SQL migration `supabase/migrations/20251025_feedback_social_proof.sql` creates the feedback tables, policies, AB flags, and a `rollup_homepage_stats()` helper.

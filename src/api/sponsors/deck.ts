@@ -16,6 +16,36 @@ This endpoint is Pro-only: verify Pro via user_subscriptions (status active/tria
 // Intercept fetch requests to /api/sponsors/deck
 const originalFetch = window.fetch;
 
+type SeasonScheduleEntry = {
+  city: string;
+  country: string;
+  dates: string;
+};
+
+type SponsorDeckRequest = {
+  name: string;
+  level: string;
+  currentRanking: string;
+  bestRanking: string;
+  seasonSchedule: SeasonScheduleEntry[];
+  socials: {
+    instagram?: string;
+    tiktok?: string;
+    youtube?: string;
+    other?: string;
+  };
+  audience?: {
+    regions: string[];
+    ageRange?: string;
+    interests?: string[];
+  };
+  packages?: {
+    bronze?: string;
+    silver?: string;
+    gold?: string;
+  };
+};
+
 window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
   const url = typeof input === 'string' ? input : input.toString();
   
@@ -24,7 +54,7 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
       // Simulate API delay
       setTimeout(() => {
         try {
-          const body = JSON.parse(init.body as string);
+          const body = JSON.parse(init.body as string) as SponsorDeckRequest;
           
           // Validate Pro status (mock)
           const authHeader = init.headers?.['Authorization' as keyof typeof init.headers];
@@ -60,7 +90,7 @@ window.fetch = function(input: RequestInfo | URL, init?: RequestInit): Promise<R
   return originalFetch(input, init);
 };
 
-function generatePersonalizedPDFContent(data: any): string {
+function generatePersonalizedPDFContent(data: SponsorDeckRequest): string {
   // Mock PDF content generation
   // In a real implementation, this would use @react-pdf/renderer
   return `%PDF-1.4
@@ -110,7 +140,7 @@ BT
 (Best Ranking: ${data.bestRanking}) Tj
 0 -30 Td
 (Season Schedule:) Tj
-${data.seasonSchedule.map((schedule: any, index: number) => 
+${data.seasonSchedule.map((schedule: SeasonScheduleEntry) => 
   `0 -20 Td (${schedule.city}, ${schedule.country} - ${schedule.dates}) Tj`
 ).join('\n')}
 0 -30 Td

@@ -1,3 +1,5 @@
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
 const VARIANT_COPY: Record<
   string,
   { title: string; subtitle: string; instruction: string }
@@ -24,11 +26,12 @@ function escapePdf(input: string) {
 }
 
 // Vercel Serverless Function: returns a small valid PDF for Sponsor Deck
-export default async function handler(req: any, res: any) {
-  const rawVariant =
-    req.query?.variant ??
-    (req.body && typeof req.body === "object" ? (req.body.variant as string | undefined) : undefined);
-  const variant = typeof rawVariant === "string" ? rawVariant.toLowerCase() : "default";
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const rawVariantParam = Array.isArray(req.query?.variant) ? req.query.variant[0] : req.query?.variant;
+  const bodyVariant =
+    req.body && typeof req.body === "object" ? (req.body as Record<string, unknown>).variant : undefined;
+  const rawVariant = typeof rawVariantParam === "string" ? rawVariantParam : typeof bodyVariant === "string" ? bodyVariant : undefined;
+  const variant = rawVariant ? rawVariant.toLowerCase() : "default";
 
   const copy =
     VARIANT_COPY[variant] ?? {

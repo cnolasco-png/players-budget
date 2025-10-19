@@ -1,14 +1,32 @@
 // Simple server-side FX proxy with in-memory cache
 // Returns JSON: { base, rates, fetched_at }
 
-const CACHE: Record<string, { ts: number; data: any }> = {};
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+
+type CachedFx = {
+  ts: number;
+  data: Record<string, number> | null;
+};
+
+type FxRatesPayload = {
+  rates?: Record<string, number>;
+};
+
+const CACHE: Record<string, CachedFx> = {};
 const TTL = 12 * 60 * 60 * 1000; // 12 hours
 
-const _fetch = (globalThis as any).fetch;
-
-export default async (req: any, res: any) => {
+export default async function handler(req: VercelRequest, res: VercelResponse) {
   try {
-    const base = (req.query?.base || req.query?.base?.toString?.() || (req.url && new URL(req.url, process.env.SITE_URL || 'http://localhost').searchParams.get('base')) || 'USD').toString().toUpperCase();
+    const baseQuery =
+      typeof req.query?.base === 'string'
+        ? req.query.base
+        : Array.isArray(req.query?.base)
+        ? req.query?.base[0]
+        : req.url
+        ? new URL(req.url, process.env.SITE_URL || 'http://localhost').searchParams.get('base')
+        : null;
+
+    const base = (baseQuery ?? 'USD').toUpperCase();
     const now = Date.now();
 
     const cached = CACHE[base];
@@ -18,21 +36,22 @@ export default async (req: any, res: any) => {
     }
 
     const url = `https://api.exchangerate.host/latest?base=${encodeURIComponent(base)}&places=6`;
-    const r = await _fetch(url);
-    if (!r.ok) {
-      const text = await r.text();
+    const response = await fetch(url);
+    if (!response.ok) {
+      const text = await response.text();
       console.error('FX fetch failed', text);
       return res.status(500).json({ error: 'Failed to fetch FX rates' });
     }
 
-    const json = await r.json();
+    const json = (await response.json()) as FxRatesPayload;
     const rates = json.rates ?? null;
     CACHE[base] = { ts: now, data: rates };
 
     res.setHeader('Cache-Control', 'public, max-age=43200');
     return res.json({ base, rates, cached: false, fetched_at: new Date(now).toISOString() });
-  } catch (err: any) {
+  } catch (err) {
     console.error('fx-rates error', err);
-    res.status(500).json({ error: err?.message ?? 'unknown' });
+    const message = err instanceof Error ? err.message : 'unknown';
+    res.status(500).json({ error: message });
   }
-};
+}

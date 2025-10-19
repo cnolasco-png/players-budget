@@ -1,5 +1,6 @@
 // Ambient type augmentation for jsPDF + jspdf-autotable
 import "jspdf";
+import type { jsPDF } from "jspdf";
 
 declare module "jspdf" {
   interface jsPDF {
@@ -8,6 +9,6 @@ declare module "jspdf" {
 }
 
 declare module "jspdf-autotable" {
-  const autoTable: (doc: any, options?: any) => void;
+  const autoTable: (doc: jsPDF, options?: unknown) => void;
   export default autoTable;
 }

@@ -1,4 +1,5 @@
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, LineChart, Line, PieChart, Pie, Cell, Area, AreaChart } from 'recharts';
+import type { TooltipProps } from 'recharts';
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface ChartData {
@@ -94,14 +95,14 @@ export default function ProfessionalCharts({ data, currency = 'USD' }: Professio
     });
   }
 
-  const CustomTooltip = ({ active, payload, label }: any) => {
+  const CustomTooltip = ({ active, payload, label }: TooltipProps<number, string>) => {
     if (active && payload && payload.length) {
       return (
         <div className="bg-green-700 p-4 border border-green-600 rounded-lg shadow-xl">
           <p className="font-semibold text-yellow-100">{label}</p>
-          {payload.map((entry: any, index: number) => (
-            <p key={index} style={{ color: entry.color }} className="font-medium">
-              {entry.name}: {formatCurrency(entry.value)}
+          {payload.map((entry, index) => (
+            <p key={`${entry.dataKey ?? index}`} style={{ color: entry.color ?? undefined }} className="font-medium">
+              {entry.name}: {formatCurrency(typeof entry.value === 'number' ? entry.value : Number(entry.value ?? 0))}
             </p>
           ))}
         </div>

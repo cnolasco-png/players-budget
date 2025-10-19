@@ -1,5 +1,14 @@
 import { FinancialData } from "@/components/FinancialEditor";
 
+type JsPDFModule = typeof import("jspdf");
+type AutoTableModule = typeof import("jspdf-autotable");
+type JsPDFConstructor = JsPDFModule["jsPDF"];
+type JsPDFInstance = InstanceType<JsPDFConstructor>;
+type ExtendedJsPDF = JsPDFInstance & {
+  lastAutoTable?: { finalY: number };
+};
+type AutoTableOptions = import("jspdf-autotable").UserOptions;
+
 // Investment Banking Grade Financial Reports for Professional Tennis Players
 // Designed to meet institutional standards comparable to Goldman Sachs, JP Morgan, Morgan Stanley
 
@@ -18,8 +27,9 @@ export interface SeasonReportData {
 }
 
 // Load PDF libraries with enhanced graphics support
-async function loadPdfLibraries() {
-  return Promise.all([import("jspdf"), import("jspdf-autotable")]);
+async function loadPdfLibraries(): Promise<[JsPDFModule, AutoTableModule]> {
+  const modules = await Promise.all([import("jspdf"), import("jspdf-autotable")]);
+  return modules as [JsPDFModule, AutoTableModule];
 }
 
 // Investment Banking Color Palette
@@ -140,7 +150,7 @@ function calculateAdvancedMetrics(data: SeasonReportData) {
 }
 
 // PowerPoint-style presentation header for landscape format
-function addPresentationHeader(doc: any, title: string, subtitle: string, slideNumber: number, totalSlides: number) {
+function addPresentationHeader(doc: ExtendedJsPDF, title: string, subtitle: string, slideNumber: number, totalSlides: number) {
   const pageWidth = 842; // A4 landscape width
   const pageHeight = 595; // A4 landscape height
   
@@ -172,7 +182,7 @@ function addPresentationHeader(doc: any, title: string, subtitle: string, slideN
 }
 
 // WOLFPRO Watermark - Cannot be removed
-function addWolfProWatermark(doc: any, pageWidth: number, pageHeight: number) {
+function addWolfProWatermark(doc: ExtendedJsPDF, pageWidth: number, pageHeight: number) {
   // Save current state
   doc.saveGraphicsState();
   
@@ -204,7 +214,7 @@ function addWolfProWatermark(doc: any, pageWidth: number, pageHeight: number) {
 }
 
 // Investment banking style header (keeping for other reports)
-function addProfessionalHeader(doc: any, title: string, subtitle: string, reportType: string = "CONFIDENTIAL") {
+function addProfessionalHeader(doc: ExtendedJsPDF, title: string, subtitle: string, reportType: string = "CONFIDENTIAL") {
   // Header background - gradient simulation with overlapping rectangles
   doc.setFillColor(COLORS.primary.r, COLORS.primary.g, COLORS.primary.b);
   doc.rect(0, 0, 612, 120, "F");
@@ -243,7 +253,7 @@ function addProfessionalHeader(doc: any, title: string, subtitle: string, report
 }
 
 // PowerPoint-style footer for landscape format
-function addPresentationFooter(doc: any, pageNumber: number, totalPages: number, playerName: string) {
+function addPresentationFooter(doc: ExtendedJsPDF, pageNumber: number, totalPages: number, playerName: string) {
   const pageWidth = 842; // A4 landscape width  
   const pageHeight = 595; // A4 landscape height
   const footerY = pageHeight - 30;
@@ -262,7 +272,7 @@ function addPresentationFooter(doc: any, pageNumber: number, totalPages: number,
 }
 
 // Investment banking style footer (keeping for other reports)
-function addProfessionalFooter(doc: any, pageNumber: number, totalPages: number, playerName: string) {
+function addProfessionalFooter(doc: ExtendedJsPDF, pageNumber: number, totalPages: number, playerName: string) {
   const footerY = 792 - 40; // A4 height - margin
   
   // Footer background
@@ -285,19 +295,23 @@ function addProfessionalFooter(doc: any, pageNumber: number, totalPages: number,
 }
 
 // Enhanced table styling for investment banking appearance
-function createProfessionalTable(doc: any, data: any, startY: number, title?: string) {
+function createProfessionalTable(
+  doc: ExtendedJsPDF,
+  options: AutoTableOptions,
+  startY: number,
+  title?: string,
+): AutoTableOptions {
   if (title) {
     doc.setTextColor(COLORS.text.r, COLORS.text.g, COLORS.text.b);
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text(title, 40, startY - 10);
-    startY += 10;
+    startY = startY + 10;
   }
 
-  const tableConfig = {
-    startY: startY,
-    head: data.head,
-    body: data.body,
+  const tableConfig: AutoTableOptions = {
+    ...options,
+    startY,
     theme: 'striped' as const,
     headStyles: {
       fillColor: [COLORS.neutral.r, COLORS.neutral.g, COLORS.neutral.b] as [number, number, number],
@@ -327,8 +341,10 @@ function createProfessionalTable(doc: any, data: any, startY: number, title?: st
 
 // Generate Investment Banking Grade Executive Summary
 export async function generateExecutiveSummaryPDF(data: SeasonReportData): Promise<void> {
-  const [{ default: jsPDF }, { default: autoTable }] = await loadPdfLibraries();
-  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" }) as any;
+  const [jsPDFModule, autoTableModule] = await loadPdfLibraries();
+  const { jsPDF } = jsPDFModule;
+  const autoTable = autoTableModule.default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" }) as ExtendedJsPDF;
   const metrics = calculateAdvancedMetrics(data);
   const { financialData, seasonData } = data;
   const playerName = data.playerName || "Professional Tennis Player";
@@ -391,7 +407,7 @@ export async function generateExecutiveSummaryPDF(data: SeasonReportData): Promi
   }, currentY + 20);
   
   autoTable(doc, kpiTable);
-  currentY = doc.lastAutoTable.finalY + 30;
+  currentY = (doc.lastAutoTable?.finalY ?? currentY) + 30;
   
   // Revenue Composition Analysis - McKinsey Style
   doc.setFontSize(14);
@@ -437,7 +453,7 @@ export async function generateExecutiveSummaryPDF(data: SeasonReportData): Promi
   }, currentY + 20);
   
   autoTable(doc, revenueTable);
-  currentY = doc.lastAutoTable.finalY + 30;
+  currentY = (doc.lastAutoTable?.finalY ?? currentY) + 30;
   
   // Financial Health Metrics - Credit Rating Style
   doc.setFontSize(14);
@@ -505,8 +521,10 @@ export async function generateExecutiveSummaryPDF(data: SeasonReportData): Promi
 
 // Generate Investment Banking Grade Complete Financial Statement (12-page institutional analysis)
 export async function generateFinancialStatementPDF(data: SeasonReportData): Promise<void> {
-  const [{ default: jsPDF }, { default: autoTable }] = await loadPdfLibraries();
-  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" }) as any;
+  const [jsPDFModule, autoTableModule] = await loadPdfLibraries();
+  const { jsPDF } = jsPDFModule;
+  const autoTable = autoTableModule.default;
+  const doc = new jsPDF({ orientation: "portrait", unit: "pt", format: "a4" }) as ExtendedJsPDF;
   const metrics = calculateAdvancedMetrics(data);
   const { financialData, seasonData } = data;
   const playerName = data.playerName || "Professional Tennis Player";
@@ -607,7 +625,7 @@ export async function generateFinancialStatementPDF(data: SeasonReportData): Pro
   autoTable(doc, plTable);
   
   // Operating Expenses Breakdown
-  currentY = doc.lastAutoTable.finalY + 40;
+  currentY = (doc.lastAutoTable?.finalY ?? currentY) + 40;
   doc.setFontSize(14);
   doc.setFont("helvetica", "bold");
   doc.text("OPERATING EXPENSE ANALYSIS", 40, currentY);
@@ -707,8 +725,10 @@ export async function generateFinancialStatementPDF(data: SeasonReportData): Pro
 
 // Generate PowerPoint-Style Sponsor Presentation Template with WOLFPRO Watermark
 export async function generateSponsorPackagePDF(data: SeasonReportData): Promise<void> {
-  const [{ default: jsPDF }, { default: autoTable }] = await loadPdfLibraries();
-  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" }) as any; // Landscape for presentation format
+  const [jsPDFModule, autoTableModule] = await loadPdfLibraries();
+  const { jsPDF } = jsPDFModule;
+  const autoTable = autoTableModule.default;
+  const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" }) as ExtendedJsPDF; // Landscape for presentation format
   const metrics = calculateAdvancedMetrics(data);
   const { financialData, seasonData } = data;
   const playerName = data.playerName || "[YOUR NAME HERE]";
@@ -969,7 +989,7 @@ export async function generateSponsorPackagePDF(data: SeasonReportData): Promise
     ["[Continue...]", "[Add more tournaments]", "[As needed]", "[Surface type]", "$[Amount]", "[Sponsor benefits]"]
   ];
   
-  const scheduleTable = {
+  const scheduleTable: AutoTableOptions = {
     startY: currentY + 40,
     head: [tournamentTemplate[0]],
     body: tournamentTemplate.slice(1),
@@ -990,7 +1010,7 @@ export async function generateSponsorPackagePDF(data: SeasonReportData): Promise
   autoTable(doc, scheduleTable);
   
   // Exposure metrics box
-  currentY = doc.lastAutoTable.finalY + 20;
+  currentY = (doc.lastAutoTable?.finalY ?? currentY) + 20;
   doc.setFillColor(COLORS.secondary.r, COLORS.secondary.g, COLORS.secondary.b);
   doc.rect(40, currentY, pageWidth - 80, 60, "F");
   
@@ -1089,7 +1109,7 @@ export async function generateSponsorPackagePDF(data: SeasonReportData): Promise
     "[How sponsor support helps]"
   ]);
   
-  const budgetTable = {
+  const budgetTable: AutoTableOptions = {
     startY: currentY + 30,
     head: [["Category", "Monthly", "Annual", "% of Budget", "Sponsor Impact"]],
     body: budgetData,
@@ -1110,7 +1130,7 @@ export async function generateSponsorPackagePDF(data: SeasonReportData): Promise
   autoTable(doc, budgetTable);
   
   // Financial goals
-  currentY = doc.lastAutoTable.finalY + 30;
+  currentY = (doc.lastAutoTable?.finalY ?? currentY) + 30;
   doc.setFillColor(COLORS.secondary.r, COLORS.secondary.g, COLORS.secondary.b);
   doc.rect(40, currentY, pageWidth - 80, 100, "F");
   

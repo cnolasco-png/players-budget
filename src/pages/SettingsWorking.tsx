@@ -9,7 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import UpgradeLink from "@/components/UpgradeLink";
 import { LogOut, Settings as SettingsIcon, Loader2, ExternalLink, MessageCircle } from "lucide-react";
+import { getErrorMessage } from "@/lib/errors";
 
 const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 
@@ -27,6 +29,7 @@ const Settings = () => {
     travelsWithCoach: false,
     plan: "free",
   });
+  const [portalLoading, setPortalLoading] = useState(false);
 
   // Quick expense state
   const [budgets, setBudgets] = useState<Array<{id: string; title: string; base_currency: string | null}>>([]);
@@ -73,11 +76,12 @@ const Settings = () => {
         travelsWithCoach: Boolean(profileData?.travels_with_coach),
         plan: profileData?.role ?? "free",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load profile", error);
+      const description = getErrorMessage(error, "Check your connection and try again.");
       toast({
         title: "Unable to load profile",
-        description: `${error.message}. Check your connection and try again.`,
+        description,
         variant: "destructive",
       });
     } finally {
@@ -106,7 +110,7 @@ const Settings = () => {
           currency: data[0].base_currency ?? "USD",
         }));
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load budgets", error);
     }
   }, [userId, expenseForm.budgetId]);
@@ -134,11 +138,12 @@ const Settings = () => {
         title: "Profile updated",
         description: "Your preferences have been saved.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to update profile", error);
+      const description = getErrorMessage(error, "Check your connection and try again.");
       toast({
         title: "Update failed",
-        description: `${error.message}. Check your connection and try again.`,
+        description,
         variant: "destructive",
       });
     } finally {
@@ -162,14 +167,7 @@ const Settings = () => {
   const planLabel = profile.plan === "pro" ? "Pro" : profile.plan === "premium" ? "Premium" : "Free";
   const isProPlan = profile.plan === "pro" || profile.plan === "premium";
 
-  const handleUpgrade = () => {
-    toast({
-      title: "Upgrade to Pro",
-      description: "Contact support to upgrade your account to Pro.",
-    });
-  };
-
-  const handleManageBilling = () => {
+  const handleManageBilling = async () => {
     if (!isProPlan) {
       toast({
         title: "Upgrade required",
@@ -177,10 +175,33 @@ const Settings = () => {
       });
       return;
     }
-    toast({
-      title: "Billing management",
-      description: "Billing portal will be available soon.",
-    });
+
+    try {
+      setPortalLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth?next=/settings/working");
+        return;
+      }
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const body = await response.json();
+      if (!response.ok || !body?.url) throw new Error(body?.error || "Unable to open billing portal");
+      window.location.href = body.url;
+    } catch (error: unknown) {
+      const description = getErrorMessage(error, "Please try again later.");
+      toast({
+        title: "Portal unavailable",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   // Handle expense form changes
@@ -250,11 +271,12 @@ const Settings = () => {
         amount: "",
         note: "",
       }));
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to log expense", error);
+      const description = getErrorMessage(error, "Please try again.");
       toast({
         title: "Could not log expense",
-        description: `${error.message}. Please try again.`,
+        description,
         variant: "destructive",
       });
     } finally {
@@ -360,11 +382,13 @@ const Settings = () => {
               <p className="text-xl font-semibold">{planLabel}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleManageBilling}>
-                Manage billing
+              <Button variant="outline" onClick={handleManageBilling} disabled={portalLoading}>
+                {portalLoading ? "Opening portal..." : "Manage billing"}
               </Button>
-              <Button variant="gold" onClick={handleUpgrade}>
-                Upgrade to Pro
+              <Button variant="gold" asChild>
+                <UpgradeLink asChild interval="monthly" source="settings_working_cta">
+                  <span>Upgrade to Pro</span>
+                </UpgradeLink>
               </Button>
             </div>
           </div>

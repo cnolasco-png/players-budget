@@ -57,10 +57,11 @@ const Auth = () => {
         title: "Account created!",
         description: "Welcome to Player's Budget. Let's set up your profile.",
       });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Sign up failed",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: `${message}. Check your internet connection and try again.`,
         variant: "destructive",
       });
     } finally {
@@ -84,10 +85,11 @@ const Auth = () => {
         title: "Welcome back!",
         description: "Signed in successfully.",
       });
-    } catch (error: any) {
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again.";
       toast({
         title: "Sign in failed",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: `${message}. Check your internet connection and try again.`,
         variant: "destructive",
       });
     } finally {

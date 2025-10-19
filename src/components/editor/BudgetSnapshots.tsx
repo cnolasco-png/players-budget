@@ -4,6 +4,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
+import UpgradeLink from "@/components/UpgradeLink";
 import type {
   ScenarioRecord,
   LineItemRecord,
@@ -25,7 +26,6 @@ type BudgetSnapshotsProps = {
   incomes: IncomeRecord[];
   currency?: string | null;
   isProUser: boolean;
-  onUpgrade?: () => void;
 };
 
 const parseScenarioTotals = (raw: unknown): SnapshotTotalsEntry[] => {
@@ -55,7 +55,6 @@ const BudgetSnapshots = ({
   incomes,
   currency = "USD",
   isProUser,
-  onUpgrade,
 }: BudgetSnapshotsProps) => {
   const { toast } = useToast();
   const [note, setNote] = useState("");
@@ -270,8 +269,10 @@ const BudgetSnapshots = ({
           </p>
         </div>
         {!isProUser && (
-          <Button variant="gold" onClick={onUpgrade}>
-            Unlock history
+          <Button variant="gold" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_snapshots" className="inline-flex items-center gap-2">
+              Unlock history
+            </UpgradeLink>
           </Button>
         )}
       </div>

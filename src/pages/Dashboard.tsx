@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useRef, useCallback, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useBudgetData } from "@/hooks/use-budget-data";
+import { useBudgetData, type BudgetData, type BudgetRecord, type LineItemRecord, type ScenarioRecord } from "@/hooks/use-budget-data";
 import { Button } from "@/components/ui/button";
+import UpgradeLink from "@/components/UpgradeLink";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
@@ -28,11 +29,61 @@ import { Link } from "react-router-dom";
 import { LineChart, Line, Legend } from "recharts";
 import ScenarioQuickView from "@/components/dashboard/ScenarioQuickView";
 import ActivityLog from "@/components/dashboard/ActivityLog";
-import { getEffectiveTaxPct, planMonthlyCost, sumIncomeMTD, forecastToYearEnd, applyContingency } from "@/utils/finance";
+import { getEffectiveTaxPct, planMonthlyCost, forecastToYearEnd, applyContingency } from "@/utils/finance";
 import type { ForecastRow } from "@/types/domain";
+import type { User } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 // Use ActivityLog's exported ActivityEntry type for compatibility with the component
 type ActivityEntry = import("@/components/dashboard/ActivityLog").ActivityEntry;
+
+type ProfileRow = Database["public"]["Tables"]["profiles"]["Row"];
+type BudgetListRow = Pick<BudgetRecord, "id" | "title" | "base_currency" | "is_active" | "season_year">;
+
+type LineItemActivityRow = {
+  id: string;
+  label: string | null;
+  created_at: string;
+  qty: number | null;
+  unit_cost: number | null;
+  currency: string | null;
+  scenarios: {
+    name: string | null;
+    budgets: {
+      id: string;
+      title: string | null;
+      user_id: string;
+      base_currency: string | null;
+    }[] | null;
+  } | null;
+};
+
+type IncomeActivityRow = {
+  id: string;
+  label: string | null;
+  created_at: string;
+  amount_monthly: number | null;
+  currency: string | null;
+  budgets: {
+    id: string;
+    title: string | null;
+    user_id: string;
+    base_currency: string | null;
+  }[] | null;
+};
+
+type ChartTooltipPayload = {
+  name: string;
+  value: number;
+};
+
+type ChartTooltipProps = {
+  active?: boolean;
+  payload?: ChartTooltipPayload[];
+  label?: string;
+};
+
+const scenarioStorageKey = (budgetId?: string) => `players-budget:selectedScenario:${budgetId ?? "global"}`;
 
 const INCOME_CATEGORY_LABELS: Record<string, string> = {
   prize: "Prize money",
@@ -42,9 +93,9 @@ const INCOME_CATEGORY_LABELS: Record<string, string> = {
 };
 
 const Dashboard = () => {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
-  const [budgets, setBudgets] = useState<any[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<ProfileRow | null>(null);
+  const [budgets, setBudgets] = useState<BudgetListRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [retryDashboard, setRetryDashboard] = useState(false);
   const [budgetsLoading, setBudgetsLoading] = useState(true);
@@ -69,11 +120,7 @@ const Dashboard = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -87,15 +134,15 @@ const Dashboard = () => {
       // Fetch profile
       const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("id, name, player_level, country, travels_with_coach, role, plan")
         .eq("id", session.user.id)
-        .maybeSingle();
+        .maybeSingle<ProfileRow>();
 
       if (profileError && profileError.code !== "PGRST116") {
         throw profileError;
       }
 
-      setProfile(profileData);
+      setProfile(profileData ?? null);
 
       // Check if profile is complete
       if (!profileData?.country || !profileData?.player_level) {
@@ -104,13 +151,15 @@ const Dashboard = () => {
       }
 
       // Fetch budgets
-      const { data: budgetsData } = await supabase
+      const { data: budgetsData, error: budgetsError } = await supabase
         .from("budgets")
-        .select("*")
+        .select("id,title,base_currency,is_active,season_year")
         .eq("user_id", session.user.id)
         .order("created_at", { ascending: false });
 
-      const nextBudgets = budgetsData || [];
+      if (budgetsError) throw budgetsError;
+
+      const nextBudgets = (budgetsData ?? []) as BudgetListRow[];
       setBudgets(nextBudgets);
       setActiveBudgetId((prev) => {
         if (prev && nextBudgets.some((budget) => budget.id === prev)) {
@@ -120,11 +169,12 @@ const Dashboard = () => {
         return active?.id ?? nextBudgets[0]?.id;
       });
       setRetryDashboard(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading dashboard:", error);
+      const message = error instanceof Error ? error.message : "Check your internet connection and try again.";
       toast({
         title: "Error loading dashboard",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: message,
         variant: "destructive",
       });
       setRetryDashboard(true);
@@ -132,7 +182,11 @@ const Dashboard = () => {
       setBudgetsLoading(false);
       setLoading(false);
     }
-  };
+  }, [navigate, toast]);
+
+  useEffect(() => {
+    void checkUser();
+  }, [checkUser]);
 
   const handleSignOut = async () => {
     await supabase.auth.signOut();
@@ -158,14 +212,11 @@ const Dashboard = () => {
 
   const { data: activeBudgetData, isLoading: activeBudgetLoading } = useBudgetData(activeBudgetId);
 
-  // persist selected scenario per budget in localStorage
-  const SCENARIO_KEY = (budgetId?: string) => `players-budget:selectedScenario:${budgetId ?? 'global'}`;
-
-  const updateSelectedScenario = (id: string | null) => {
+  const updateSelectedScenario = useCallback((id: string | null) => {
     setSelectedScenarioId(id);
     try {
       if (!activeBudgetId) return;
-      const key = SCENARIO_KEY(activeBudgetId);
+      const key = scenarioStorageKey(activeBudgetId);
       if (id) {
         localStorage.setItem(key, id);
       } else {
@@ -175,15 +226,15 @@ const Dashboard = () => {
       // ignore localStorage errors (e.g., private mode)
       console.debug("localStorage error persisting scenario", e);
     }
-  };
+  }, [activeBudgetId]);
 
   // when an active budget loads, restore last selected scenario for that budget if present
   useEffect(() => {
     if (!activeBudgetId || !activeBudgetData?.scenarios?.length) return;
     try {
-      const key = SCENARIO_KEY(activeBudgetId);
+      const key = scenarioStorageKey(activeBudgetId);
       const stored = localStorage.getItem(key);
-      if (stored && activeBudgetData.scenarios.some((s: any) => s.id === stored)) {
+      if (stored && activeBudgetData.scenarios.some((scenario) => scenario.id === stored)) {
         setSelectedScenarioId(stored);
         return;
       }
@@ -191,87 +242,105 @@ const Dashboard = () => {
       console.debug("localStorage error reading scenario", e);
     }
 
-    // fallback: use existing selection or default to first scenario
     if (!selectedScenarioId) {
       updateSelectedScenario(activeBudgetData.scenarios[0].id);
     }
-  }, [activeBudgetId, activeBudgetData]);
+  }, [activeBudgetData, activeBudgetId, selectedScenarioId, updateSelectedScenario]);
 
   // load planned monthly cost and forecast whenever active budget or scenario changes
   useEffect(() => {
     let mounted = true;
     const loadPlan = async () => {
-      if (!activeBudgetId || !selectedScenarioId) {
-        setPlannedMonthlyCost(null);
-        setForecastRows([]);
-        return;
-      }
-      try {
-        setPlannedLoading(true);
-        // derive tax pct: prefer effective tax lookup, fallback to budget.tax_pct
-        const budgetCountry = activeBudgetData?.budget?.tax_country ?? profile?.country ?? 'US';
-        // try to map profile.player_level to one of expected levels
-        const pl = (profile?.player_level || '').toString();
-        let level: 'ITF' | 'Challenger' | 'ATP/WTA' = 'ATP/WTA';
-        if (/ITF/i.test(pl)) level = 'ITF';
-        else if (/Challenger/i.test(pl)) level = 'Challenger';
-        try {
-          const taxPct = getEffectiveTaxPct(budgetCountry);
-          // TODO: Replace with actual data - these are stub implementations
-          const plan = planMonthlyCost(1000); // placeholder monthly cost
-          const incomeToDate = sumIncomeMTD([], new Date()); // empty entries for now
-          const yearEndForecast = forecastToYearEnd([], [], new Date().getMonth()); // empty arrays for now
-          
-          if (!mounted) return;
-          setPlannedMonthlyCost(plan);
-          // Note: forecast now returns number, but component expects ForecastRow[]
-          // This will need to be updated when actual forecast data structure is implemented
-          setForecastRows([]);
-        } catch (e) {
-          // fallback behavior: use budget tax_pct
-          const taxPct = activeBudgetData?.budget?.tax_pct ?? 0;
-          const plan = planMonthlyCost(1000); // placeholder
-          
-          if (!mounted) return;
-          setPlannedMonthlyCost(plan);
+      if (!activeBudgetId || !selectedScenarioId || !activeBudgetData) {
+        if (mounted) {
+          setPlannedMonthlyCost(null);
           setForecastRows([]);
         }
-       } catch (err) {
-         console.error("Failed to load plan/forecast", err);
-         toast({ title: "Error loading projections", description: "Could not load plan or forecast data.", variant: "destructive" });
-         setPlannedMonthlyCost(null);
-         setForecastRows([]);
-       } finally {
-         if (mounted) setPlannedLoading(false);
-       }
-     };
-     loadPlan();
-     return () => {
-       mounted = false;
-     };
-  }, [activeBudgetId, selectedScenarioId, activeBudgetData?.budget?.tax_pct]);
+        return;
+      }
+
+      try {
+        setPlannedLoading(true);
+        const baseCountry = activeBudgetData.budget.tax_country ?? profile?.country ?? "US";
+        const taxRate = getEffectiveTaxPct(baseCountry, activeBudgetData.budget.tax_pct ?? 25);
+
+        const localPlan = computeLocalPlan();
+
+        if (!mounted) return;
+        setPlannedMonthlyCost(localPlan);
+
+        // Build a simple forecast for the remaining months of the year
+        const now = new Date();
+        const currentMonthIndex = now.getMonth();
+        const months = Array.from({ length: 12 }, (_, index) => index);
+        const monthlyPlanValue = planMonthlyCost(localPlan ?? 0);
+        const monthlyIncomeActual = quickStats?.monthlyIncome ?? 0;
+
+        const monthlyActuals = months.map((index) => (index <= currentMonthIndex ? monthlyIncomeActual : 0));
+        const monthlyPlan = months.map(() => monthlyPlanValue);
+
+        const forecastTotal = forecastToYearEnd(monthlyActuals, monthlyPlan, currentMonthIndex);
+
+        const forecastRowsData: ForecastRow[] = months.map((index) => {
+          const monthDate = new Date(now.getFullYear(), index, 1);
+          const monthLabel = monthDate.toLocaleString("default", { month: "short" });
+          const plannedIncome = index <= currentMonthIndex ? monthlyIncomeActual : monthlyPlanValue;
+          const plannedCost = monthlyPlanValue * (1 - taxRate / 100);
+
+          return {
+            month: monthLabel,
+            plannedCost,
+            plannedIncome,
+            net: plannedIncome - plannedCost,
+          };
+        });
+
+        if (!mounted) return;
+        setForecastRows(forecastRowsData);
+      } catch (error) {
+        console.error("Failed to load plan/forecast", error);
+        if (mounted) {
+          toast({
+            title: "Error loading projections",
+            description: "Could not load plan or forecast data.",
+            variant: "destructive",
+          });
+          setPlannedMonthlyCost(null);
+          setForecastRows([]);
+        }
+      } finally {
+        if (mounted) {
+          setPlannedLoading(false);
+        }
+      }
+    };
+
+    void loadPlan();
+    return () => {
+      mounted = false;
+    };
+  }, [activeBudgetData, activeBudgetId, computeLocalPlan, profile?.country, quickStats, selectedScenarioId, toast]);
 
   // Compute a local plan cost from activeBudgetData.lineItems applying sandbox overrides
-  const computeLocalPlan = () => {
+  const computeLocalPlan = useCallback(() => {
     if (!activeBudgetData || !selectedScenarioId) return null;
-    const items = (activeBudgetData.lineItems ?? []).filter((li: any) => li.scenario_id === selectedScenarioId);
-    const base = items.reduce((sum: number, it: any) => {
-      let qty = Number(it.qty ?? 1);
-      let unit = Number(it.unit_cost ?? 0);
+    const items = (activeBudgetData.lineItems ?? []).filter((li) => li.scenario_id === selectedScenarioId);
+    const base = items.reduce((sum, item) => {
+      let qty = Number(item.qty ?? 1);
+      let unit = Number(item.unit_cost ?? 0);
 
-      const label = String(it.label ?? '').toLowerCase();
+      const label = String(item.label ?? "").toLowerCase();
 
-      if (sandboxNightsPerTournament !== null && label.includes('night')) {
+      if (sandboxNightsPerTournament !== null && label.includes("night")) {
         qty = sandboxNightsPerTournament;
       }
-      if (sandboxAirfarePerLeg !== null && (label.includes('air') || label.includes('flight') || label.includes('airfare'))) {
+      if (sandboxAirfarePerLeg !== null && (label.includes("air") || label.includes("flight") || label.includes("airfare"))) {
         unit = sandboxAirfarePerLeg;
       }
-      if (sandboxMealsPerDay !== null && label.includes('meal')) {
-        // assume unit_cost represents cost per meal
+      if (sandboxMealsPerDay !== null && label.includes("meal")) {
         unit = sandboxMealsPerDay;
       }
-      if (sandboxRestringsPerWeek !== null && label.includes('restring')) {
+      if (sandboxRestringsPerWeek !== null && label.includes("restring")) {
         unit = sandboxRestringsPerWeek;
       }
 
@@ -280,24 +349,31 @@ const Dashboard = () => {
 
     const contingency = activeBudgetData?.budget?.contingency_pct ?? 0;
     return applyContingency(base, contingency);
-  };
+  }, [
+    activeBudgetData,
+    selectedScenarioId,
+    sandboxAirfarePerLeg,
+    sandboxMealsPerDay,
+    sandboxNightsPerTournament,
+    sandboxRestringsPerWeek,
+  ]);
 
   // update temp plan when knobs or active data change
   useEffect(() => {
     const temp = computeLocalPlan();
     setTempPlannedCost(temp);
-  }, [sandboxNightsPerTournament, sandboxAirfarePerLeg, sandboxMealsPerDay, sandboxRestringsPerWeek, activeBudgetData, selectedScenarioId]);
+  }, [computeLocalPlan]);
 
   // Apply sandbox overrides to matching line_items for the selected scenario
   const applySandboxToScenario = async () => {
     if (!selectedScenarioId || !activeBudgetData || !activeBudgetId) return;
     try {
       toast({ title: 'Applying sandbox values', description: 'Saving changes to scenario...' });
-      const items = (activeBudgetData.lineItems ?? []).filter((li: any) => li.scenario_id === selectedScenarioId);
+      const items = (activeBudgetData.lineItems ?? []).filter((item) => item.scenario_id === selectedScenarioId);
       let anyUpdated = false;
       for (const it of items) {
         const label = String(it.label ?? '').toLowerCase();
-        const update: any = {};
+        const update: { qty?: number; unit_cost?: number } = {};
         let shouldUpdate = false;
         if (sandboxNightsPerTournament !== null && /night/i.test(label)) {
           update.qty = sandboxNightsPerTournament;
@@ -329,10 +405,9 @@ const Dashboard = () => {
       }
       toast({ title: 'Scenario updated', description: 'Sandbox values saved to scenario line items.' });
       // refresh by reloading fetched plan/forecast
-      const plan = planMonthlyCost(1000); // placeholder
-      setPlannedMonthlyCost(plan);
-      const fc = forecastToYearEnd([], [], new Date().getMonth()); // placeholder
-      setForecastRows([]); // placeholder empty array
+      const newPlan = computeLocalPlan();
+      setPlannedMonthlyCost(newPlan);
+      setTempPlannedCost(newPlan);
     } catch (e) {
       console.error('Failed to apply sandbox', e);
       toast({ title: 'Save failed', description: 'Could not save sandbox to scenario.', variant: 'destructive' });
@@ -388,7 +463,7 @@ const Dashboard = () => {
     } finally {
       setMonthlyExpenseLoading(false);
     }
-  }, [user, activeBudgetId]);
+  }, [activeBudgetId, activeBudgetData?.budget?.base_currency, fxRates, user]);
   
   // fetch FX rates for active budget base currency (optional)
   useEffect(() => {
@@ -417,15 +492,16 @@ const Dashboard = () => {
   }, [activeBudgetData?.budget?.base_currency]);
 
   // Recharts tooltip content — formats values using budget currency
-  const ChartTooltip = ({ active, payload, label }: any) => {
-    if (!active || !payload || !payload.length) return null;
-    const currency = activeBudgetData?.budget?.base_currency ?? quickStats?.currency ?? 'USD';
+  const ChartTooltip = ({ active, payload, label }: ChartTooltipProps) => {
+    if (!active || !payload || payload.length === 0) return null;
+    const currency = activeBudgetData?.budget?.base_currency ?? quickStats?.currency ?? "USD";
     return (
       <div className="bg-card p-2 rounded shadow">
         <div className="text-sm font-medium mb-1">{label}</div>
-        {payload.map((p: any) => (
-          <div key={p.name} className="text-sm">
-            <span className="font-semibold">{p.name}:</span> {formatCurrency(p.value ?? 0, currency)}
+        {payload.map((entry, index) => (
+          <div key={entry?.name ?? `tooltip-${index}`} className="text-sm">
+            <span className="font-semibold">{entry?.name}:</span>{" "}
+            {formatCurrency(typeof entry?.value === "number" ? entry.value : Number(entry?.value ?? 0), currency)}
           </div>
         ))}
       </div>
@@ -434,7 +510,7 @@ const Dashboard = () => {
 
   useEffect(() => {
     refreshMonthlyExpenses();
-  }, [refreshMonthlyExpenses, activeBudgetData?.budget?.base_currency]);
+  }, [refreshMonthlyExpenses]);
 
   useEffect(() => {
     if (!user) return;
@@ -488,43 +564,43 @@ const Dashboard = () => {
             .limit(5),
         ]);
 
-        const lineEntries: ActivityEntry[] =
-          lineItemsRes.data?.map((item: any) => {
-            const scenario = item.scenarios;
-            const budget = Array.isArray(scenario?.budgets) ? scenario?.budgets?.[0] : scenario?.budgets;
-            const budgetTitle = budget?.title ?? "Budget";
-            const scenarioName = scenario?.name ?? "";
+        const lineEntries: ActivityEntry[] = (lineItemsRes.data ?? [] as LineItemActivityRow[]).map((item) => {
+          const scenario = item.scenarios;
+          const scenarioBudgets = scenario?.budgets ?? [];
+          const budget = Array.isArray(scenarioBudgets) ? scenarioBudgets[0] : scenarioBudgets;
+          const budgetTitle = budget?.title ?? "Budget";
+          const scenarioName = scenario?.name ?? "";
 
-            const currency = item.currency ?? budget?.base_currency ?? "USD";
-            const qty = item.qty ?? 1;
-            const unitCost = item.unit_cost ?? 0;
+          const currency = item.currency ?? budget?.base_currency ?? "USD";
+          const qty = item.qty ?? 1;
+          const unitCost = item.unit_cost ?? 0;
 
-            return {
-              id: item.id,
-              type: "line_item" as const,
-              createdAt: item.created_at,
-              budgetTitle,
-              scenarioName,
-              label: item.label,
-              amount: qty * unitCost,
-              currency,
-            };
-          }) ?? [];
+          return {
+            id: item.id,
+            type: "line_item" as const,
+            createdAt: item.created_at,
+            budgetTitle,
+            scenarioName,
+            label: item.label,
+            amount: qty * unitCost,
+            currency,
+          };
+        });
 
-        const incomeEntries: ActivityEntry[] =
-          incomesRes.data?.map((item: any) => {
-            const budget = Array.isArray(item.budgets) ? item.budgets?.[0] : item.budgets;
-            const currency = item.currency ?? budget?.base_currency ?? "USD";
-            return {
-              id: item.id,
-              type: "income" as const,
-              createdAt: item.created_at,
-              budgetTitle: budget?.title ?? "Budget",
-              label: item.label,
-              amount: item.amount_monthly ?? null,
-              currency,
-            };
-          }) ?? [];
+        const incomeEntries: ActivityEntry[] = (incomesRes.data ?? [] as IncomeActivityRow[]).map((item) => {
+          const incomeBudgets = item.budgets ?? [];
+          const budget = Array.isArray(incomeBudgets) ? incomeBudgets[0] : incomeBudgets;
+          const currency = item.currency ?? budget?.base_currency ?? "USD";
+          return {
+            id: item.id,
+            type: "income" as const,
+            createdAt: item.created_at,
+            budgetTitle: budget?.title ?? "Budget",
+            label: item.label,
+            amount: item.amount_monthly ?? null,
+            currency,
+          };
+        });
 
         const combined = [...lineEntries, ...incomeEntries]
           .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
@@ -545,7 +621,7 @@ const Dashboard = () => {
     setRetryDashboard(false);
     setBudgetsLoading(true);
     setLoading(true);
-    checkUser();
+    void checkUser();
   };
 
   const quickStats = useMemo(() => {
@@ -581,7 +657,19 @@ const Dashboard = () => {
     };
   }, [activeBudgetData, monthlyExpenseTotal]);
 
-  const isProUser = Boolean(profile?.role === "pro" || activeBudgetData?.budget.is_active);
+  const isProUser = Boolean(profile?.plan === "pro" || profile?.role === "pro" || activeBudgetData?.budget.is_active);
+
+  const findScenarioLineItem = (pattern: RegExp) => {
+    if (!activeBudgetData?.lineItems || !selectedScenarioId) return undefined;
+    return activeBudgetData.lineItems.find(
+      (item) => item.scenario_id === selectedScenarioId && pattern.test(item.label ?? ""),
+    );
+  };
+
+  const defaultNightsPerTournament = findScenarioLineItem(/night/i)?.qty ?? 3;
+  const defaultAirfarePerLeg = findScenarioLineItem(/air|flight|airfare/i)?.unit_cost ?? 400;
+  const defaultMealsPerDay = findScenarioLineItem(/meal/i)?.unit_cost ?? 20;
+  const defaultRestringsPerWeek = findScenarioLineItem(/restring/i)?.unit_cost ?? 15;
 
   if (loading) {
     return (
@@ -673,7 +761,11 @@ const Dashboard = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="gold" onClick={() => navigate("/onboarding?upgrade=true")} className="shadow-md font-medium">Upgrade to Pro Court</Button>
+              <Button variant="gold" asChild className="shadow-md font-medium">
+                <UpgradeLink asChild interval="monthly" source="dashboard_banner">
+                  <span>Upgrade to Pro Court</span>
+                </UpgradeLink>
+              </Button>
               <Button variant="outline" onClick={() => navigate("/settings")} className="border-emerald-200 hover:bg-emerald-50 shadow-sm">See Benefits</Button>
             </div>
           </div>
@@ -944,16 +1036,16 @@ const Dashboard = () => {
             <div className="mb-4 flex items-center justify-between">
               <h3 className="text-lg font-semibold">Projections & Actuals</h3>
               <div className="flex items-center gap-2">
-                {activeBudgetData.scenarios.map((s: any) => (
+                {activeBudgetData.scenarios.map((scenario: ScenarioRecord) => (
                   <button
-                    key={s.id}
+                    key={scenario.id}
                     className={`rounded-md border px-3 py-1 text-sm ${plannedLoading ? 'opacity-60 cursor-not-allowed' : 'hover:bg-muted'}`}
-                    onClick={() => !plannedLoading && updateSelectedScenario(s.id)}
+                    onClick={() => !plannedLoading && updateSelectedScenario(scenario.id)}
                     disabled={plannedLoading}
-                    aria-pressed={selectedScenarioId === s.id}
-                    title={selectedScenarioId === s.id ? 'Selected' : `Select ${s.name}`}
+                    aria-pressed={selectedScenarioId === scenario.id}
+                    title={selectedScenarioId === scenario.id ? 'Selected' : `Select ${scenario.name}`}
                   >
-                    {s.name}
+                    {scenario.name}
                   </button>
                 ))}
               </div>
@@ -1042,7 +1134,7 @@ const Dashboard = () => {
                           type="range"
                           min={1}
                           max={14}
-                          value={sandboxNightsPerTournament ?? (activeBudgetData?.lineItems?.find((li:any)=>li.scenario_id===selectedScenarioId && /night/i.test(li.label))?.qty ?? 3)}
+                          value={sandboxNightsPerTournament ?? defaultNightsPerTournament}
                           onChange={(e) => setSandboxNightsPerTournament(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1058,7 +1150,7 @@ const Dashboard = () => {
                           min={0}
                           max={3000}
                           step={10}
-                          value={sandboxAirfarePerLeg ?? (activeBudgetData?.lineItems?.find((li:any)=>li.scenario_id===selectedScenarioId && /air|flight|airfare/i.test(li.label))?.unit_cost ?? 400)}
+                          value={sandboxAirfarePerLeg ?? defaultAirfarePerLeg}
                           onChange={(e) => setSandboxAirfarePerLeg(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1074,7 +1166,7 @@ const Dashboard = () => {
                           min={0}
                           max={200}
                           step={1}
-                          value={sandboxMealsPerDay ?? (activeBudgetData?.lineItems?.find((li:any)=>li.scenario_id===selectedScenarioId && /meal/i.test(li.label))?.unit_cost ?? 20)}
+                          value={sandboxMealsPerDay ?? defaultMealsPerDay}
                           onChange={(e) => setSandboxMealsPerDay(Number(e.target.value))}
                           className="w-full"
                         />
@@ -1090,7 +1182,7 @@ const Dashboard = () => {
                           min={0}
                           max={200}
                           step={1}
-                          value={sandboxRestringsPerWeek ?? (activeBudgetData?.lineItems?.find((li:any)=>li.scenario_id===selectedScenarioId && /restring/i.test(li.label))?.unit_cost ?? 15)}
+                          value={sandboxRestringsPerWeek ?? defaultRestringsPerWeek}
                           onChange={(e) => setSandboxRestringsPerWeek(Number(e.target.value))}
                           className="w-full"
                         />

@@ -13,6 +13,8 @@ import { useBudgetData, useBudgetList } from "@/hooks/use-budget-data";
 import { calculateScenarioTotals } from "@/lib/budgetCalculations";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { TrendingUp, LayoutGrid, ChartColumn, PieChart } from "lucide-react";
+import useProGate from "@/hooks/useProGate";
+import UpgradeLink from "@/components/UpgradeLink";
 
 const Sheets = () => {
   const [userId, setUserId] = useState<string | null>(null);
@@ -39,6 +41,7 @@ const Sheets = () => {
   }, [budgets, selectedBudgetId]);
 
   const { data: budgetData, isLoading } = useBudgetData(selectedBudgetId);
+  const { isPro } = useProGate();
 
   useEffect(() => {
     if (!selectedScenarioId && budgetData?.scenarios?.length) {
@@ -116,7 +119,11 @@ const Sheets = () => {
                     </p>
                   </div>
                   <div className="flex flex-wrap gap-2">
-                    <Button variant="gold" onClick={() => navigate("/onboarding?upgrade=true")}>Renew Pro</Button>
+                    <Button asChild variant="gold">
+                      <UpgradeLink asChild interval="monthly" source="sheets_banner">
+                        <span>Renew Pro</span>
+                      </UpgradeLink>
+                    </Button>
                     <Button variant="outline" onClick={() => navigate("/settings")}>Compare plans</Button>
                   </div>
                 </div>
@@ -132,7 +139,7 @@ const Sheets = () => {
                 scenarios={budgetData.scenarios}
                 lineItems={budgetData.lineItems}
                 incomes={budgetData.incomes}
-                isProUser={Boolean(budgetData.budget.is_active)}
+                isProUser={isPro}
               />
             </div>
 
@@ -156,8 +163,7 @@ const Sheets = () => {
                 baselineScenarioId={selectedScenarioId}
                 currency={budgetData.budget.base_currency}
                 onBaselineChange={setSelectedScenarioId}
-                isProUser={Boolean(budgetData.budget.is_active)}
-                onUpgrade={() => navigate("/onboarding?upgrade=true")}
+                isProUser={isPro}
               />
             </div>
 
@@ -186,8 +192,7 @@ const Sheets = () => {
               lineItems={budgetData.lineItems}
               scenarioTotals={scenarioTotals}
               currency={budgetData.budget.base_currency}
-              isProUser={Boolean(budgetData.budget.is_active)}
-              onUpgrade={() => navigate("/onboarding?upgrade=true")}
+              isProUser={isPro}
             />
           </div>
         )}

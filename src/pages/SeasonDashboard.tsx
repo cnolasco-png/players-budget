@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import QuickAdd from "@/components/QuickAdd";
 import "../api/ocr"; // Initialize OCR mock
 import "../api/exports/route"; // Initialize export endpoints
+import type { User } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 // Types
 interface SeasonData {
@@ -79,8 +81,8 @@ interface UpcomingItem {
 }
 
 const SeasonDashboard = () => {
-  const [user, setUser] = useState<any>(null);
-  const [profile, setProfile] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [profile, setProfile] = useState<Database["public"]["Tables"]["profiles"]["Row"] | null>(null);
   const [loading, setLoading] = useState(true);
   const [seasonData, setSeasonData] = useState<SeasonData | null>(null);
   const [isProUser, setIsProUser] = useState(false);
@@ -185,11 +187,7 @@ const SeasonDashboard = () => {
     { month: 'Apr', plan: 8800, actual: null, forecast: 8600 },
   ];
 
-  useEffect(() => {
-    checkUser();
-  }, []);
-
-  const checkUser = async () => {
+  const checkUser = useCallback(async () => {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       
@@ -201,31 +199,42 @@ const SeasonDashboard = () => {
       setUser(session.user);
 
       // Fetch profile
-      const { data: profileData } = await supabase
+      const { data: profileData, error: profileError } = await supabase
         .from("profiles")
-        .select("*")
+        .select("name, role")
         .eq("id", session.user.id)
-        .maybeSingle();
+        .maybeSingle<Database["public"]["Tables"]["profiles"]["Row"]>();
 
-      setProfile(profileData);
+      if (profileError) {
+        throw profileError;
+      }
+
+      setProfile(profileData ?? null);
       setIsProUser(profileData?.role === "pro");
-      setSeasonData(calculateSeasonData(financialData));
 
-    } catch (error: any) {
+    } catch (error) {
       console.error("Error loading dashboard:", error);
+      const message = error instanceof Error ? error.message : "Please try again later.";
       toast({
         title: "Error loading dashboard",
-        description: error.message,
+        description: message,
         variant: "destructive",
       });
     } finally {
       setLoading(false);
     }
-  };
+  }, [navigate, toast]);
+
+  useEffect(() => {
+    void checkUser();
+  }, [checkUser]);
+
+  useEffect(() => {
+    setSeasonData(calculateSeasonData(financialData));
+  }, [financialData]);
 
   const handleFinancialDataUpdate = (newData: FinancialData) => {
     setFinancialData(newData);
-    setSeasonData(calculateSeasonData(newData));
     toast({
       title: "Financial data updated",
       description: "Your season projections have been recalculated.",

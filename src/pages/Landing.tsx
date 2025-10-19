@@ -1,11 +1,44 @@
+import { useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { TrendingUp, Calculator, FileText, Target, ArrowRight } from "lucide-react";
 import { Link } from "react-router-dom";
+import SocialProofStrip from "@/components/social/SocialProofStrip";
+import TestimonialsCarousel from "@/components/social/TestimonialsCarousel";
+import ProofMasonry from "@/components/social/ProofMasonry";
+import SchemaInjector from "@/components/social/SchemaInjector";
+import { useHomepageSocialProof } from "@/hooks/useHomepageSocialProof";
+import { useFeatureFlag } from "@/components/providers/FeatureFlagProvider";
 
 const Landing = () => {
+  const { feedback, stats } = useHomepageSocialProof();
+  const blurVariant = useFeatureFlag("homepage_blur_unlock", "A") === "B";
+
+  const proofItems = useMemo(
+    () =>
+      feedback.map((item, index) => ({
+        id: item.id,
+        quote: item.quote,
+        org: item.org,
+        attendees: 40 - index * 3,
+        qrScans: 25 - index * 2,
+        redemptions: 20 - index,
+        signups: 12 - index,
+        media_url: item.media_url,
+      })),
+    [feedback],
+  );
+
   return (
     <div className="min-h-screen">
+      <SchemaInjector
+        items={feedback.slice(0, 10).map((item) => ({
+          id: item.id,
+          quote: item.quote,
+          author: item.name ?? "Verified member",
+          rating: item.rating,
+        }))}
+      />
       {/* Hero Section */}
       <section className="gradient-hero py-20 px-4">
         <div className="container mx-auto max-w-6xl">
@@ -45,6 +78,27 @@ const Landing = () => {
           </div>
         </div>
       </section>
+
+      {stats && (
+        <section className="px-4 -mt-12 mb-12">
+          <SocialProofStrip
+            stats={{
+              total_attendees: stats.total_activations ?? 2000,
+              total_qr_scans: stats.total_qr_scans ?? 1300,
+              avg_time_to_first_sponsor: stats.avg_time_to_first_sponsor ?? 17,
+            }}
+          />
+        </section>
+      )}
+
+      {feedback.length > 0 && (
+        <section className="px-4 pb-16">
+          <div className="container mx-auto max-w-6xl space-y-8">
+            <TestimonialsCarousel testimonials={feedback} />
+            <ProofMasonry items={proofItems} blurVariant={blurVariant} />
+          </div>
+        </section>
+      )}
 
       {/* Features Section */}
       <section className="py-24 px-4 bg-background">

@@ -9,6 +9,7 @@ import BudgetSnapshots from "@/components/editor/BudgetSnapshots";
 import IncomeManager from "@/components/editor/IncomeManager";
 import ExpenseManager from "@/components/editor/ExpenseManager";
 import LineItemImporter, { type ImportRow } from "@/components/editor/LineItemImporter";
+import UpgradeLink from "@/components/UpgradeLink";
 import {
   useBudgetData,
   useBudgetList,
@@ -25,12 +26,26 @@ import {
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
 import { ClipboardEdit, ArrowLeft, Calculator } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import useProGate from "@/hooks/useProGate";
+import { getErrorMessage } from "@/lib/errors";
+import type { LineItemInsert, LineItemRecord, ExpenseInsert, ExpenseRecord } from "@/hooks/use-budget-data";
+
+type LineItemUpdatePayload = Partial<LineItemRecord> & { id: string };
+type ExpenseUpdatePayload = Partial<ExpenseRecord> & { id: string };
+type ExpenseManagerFormPayload = {
+  date: string;
+  category: string;
+  label?: string | null;
+  amount: number;
+  currency: string;
+  notes?: string | null;
+};
 
 const Editor = () => {
   const [userId, setUserId] = useState<string | null>(null);
   const [selectedBudgetId, setSelectedBudgetId] = useState<string | undefined>();
-  const [retryUpdatePayload, setRetryUpdatePayload] = useState<Parameters<typeof updater.mutate>[0] | null>(null);
-  const [retryCreatePayload, setRetryCreatePayload] = useState<Parameters<typeof creator.mutate>[0] | null>(null);
+  const [retryUpdatePayload, setRetryUpdatePayload] = useState<LineItemUpdatePayload | null>(null);
+  const [retryCreatePayload, setRetryCreatePayload] = useState<LineItemInsert | null>(null);
   const [shouldRetryUpdate, setShouldRetryUpdate] = useState(false);
   const [shouldRetryCreate, setShouldRetryCreate] = useState(false);
   const navigate = useNavigate();
@@ -56,6 +71,7 @@ const Editor = () => {
   }, [budgets, selectedBudgetId]);
 
   const { data: budgetData, isLoading } = useBudgetData(selectedBudgetId);
+  const { isPro } = useProGate();
   const updater = useLineItemUpdater(selectedBudgetId);
   const creator = useLineItemCreator(selectedBudgetId);
   const incomeCreator = useIncomeCreator(selectedBudgetId);
@@ -64,10 +80,14 @@ const Editor = () => {
   const expenseCreator = useExpenseCreator(selectedBudgetId);
   const expenseUpdater = useExpenseUpdater(selectedBudgetId);
   const expenseRemover = useExpenseRemover(selectedBudgetId);
+  const { data: expensesData, refetch: refetchExpenses } = useExpenses(selectedBudgetId);
+  const expenses: ExpenseRecord[] = expensesData ?? [];
 
-  const isCreatingLineItems = Boolean((creator as any)?.isLoading);
-  const incomeSubmitting = Boolean((incomeCreator as any)?.isLoading || (incomeUpdater as any)?.isLoading || (incomeRemover as any)?.isLoading);
-  const expenseSubmitting = Boolean((expenseCreator as any)?.isLoading || (expenseUpdater as any)?.isLoading || (expenseRemover as any)?.isLoading);
+  const isCreatingLineItems = creator.status === "pending";
+  const incomeSubmitting =
+    incomeCreator.status === "pending" || incomeUpdater.status === "pending" || incomeRemover.status === "pending";
+  const expenseSubmitting =
+    expenseCreator.status === "pending" || expenseUpdater.status === "pending" || expenseRemover.status === "pending";
 
   const scenarioTotals = useMemo(() => {
     if (!budgetData) return [];
@@ -75,18 +95,19 @@ const Editor = () => {
   }, [budgetData]);
 
   const monthlySpend = scenarioTotals.reduce((sum, entry) => sum + entry.total, 0);
-  const isProUser = Boolean(budgetData?.budget?.is_active);
+  const isProUser = isPro;
 
-  const handleUpdate = (payload: Parameters<typeof updater.mutate>[0]) => {
+  const handleUpdate = (payload: LineItemUpdatePayload) => {
     setRetryUpdatePayload(payload);
     setShouldRetryUpdate(false);
     updater.mutate(payload, {
       onError: (error) => {
         console.error("Budget line update failed", error);
         setShouldRetryUpdate(true);
+        const description = `${getErrorMessage(error, "Unable to save changes")}. Check your internet connection and try again.`;
         toast({
           title: "Update failed",
-          description: `${error.message}. Check your internet connection and try again.`,
+          description,
           variant: "destructive",
         });
       },
@@ -96,16 +117,17 @@ const Editor = () => {
     });
   };
 
-  const handleCreate = (payload: Parameters<typeof creator.mutate>[0]) => {
+  const handleCreate = (payload: LineItemInsert) => {
     setRetryCreatePayload(payload);
     setShouldRetryCreate(false);
     creator.mutate(payload, {
       onError: (error) => {
         console.error("Line item creation failed", error);
         setShouldRetryCreate(true);
+        const description = `${getErrorMessage(error, "Unable to add line item")}. Check your internet connection and try again.`;
         toast({
           title: "Could not add line item",
-          description: `${error.message}. Check your internet connection and try again.`,
+          description,
           variant: "destructive",
         });
       },
@@ -189,11 +211,11 @@ const Editor = () => {
         title: "Income added",
         description: "Monthly totals updated.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to add income", error);
       toast({
         title: "Could not add income",
-        description: `${error.message}. Check your connection and try again.`,
+        description: getErrorMessage(error, "Check your connection and try again."),
         variant: "destructive",
       });
     }
@@ -227,11 +249,11 @@ const Editor = () => {
         title: "Income updated",
         description: "Recurring totals refreshed.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to update income", error);
       toast({
         title: "Could not update income",
-        description: `${error.message}. Your previous values were restored.`,
+        description: getErrorMessage(error, "We restored your previous values."),
         variant: "destructive",
       });
     }
@@ -244,27 +266,114 @@ const Editor = () => {
         title: "Income removed",
         description: "The source no longer counts toward funding.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to delete income", error);
       toast({
         title: "Could not delete income",
-        description: `${error.message}. Try again in a moment.`,
+        description: getErrorMessage(error, "Try again in a moment."),
         variant: "destructive",
       });
     }
   };
 
-  const openParam = searchParams.get('open');
-  const openExpenseDialog = openParam === 'expenses';
+  const ensureAuthenticated = () => {
+    if (!userId) {
+      toast({
+        title: "Session expired",
+        description: "Sign in again to manage expenses.",
+        variant: "destructive",
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const resolveBudgetId = () => budgetData?.budget.id ?? selectedBudgetId ?? null;
+
+  const handleExpenseCreate = async (payload: ExpenseManagerFormPayload) => {
+    if (!ensureAuthenticated()) return;
+    const budgetId = resolveBudgetId();
+    if (!budgetId) {
+      toast({
+        title: "Select a budget",
+        description: "Pick a budget before logging expenses.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const insert: ExpenseInsert = {
+      user_id: userId!,
+      budget_id: budgetId,
+      category: payload.category,
+      amount: payload.amount,
+      currency: payload.currency,
+      date: payload.date,
+      label: payload.label ?? null,
+      notes: payload.notes ?? null,
+      created_at: new Date().toISOString(),
+    };
+
+    try {
+      await expenseCreator.mutateAsync(insert);
+      toast({ title: "Expense added", description: "Saved to your expense log." });
+      await refetchExpenses();
+    } catch (error: unknown) {
+      console.error("Failed to add expense", error);
+      toast({
+        title: "Could not add expense",
+        description: getErrorMessage(error, "Please try again."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExpenseUpdate = async (id: string, payload: Partial<ExpenseManagerFormPayload>) => {
+    const updatePayload: ExpenseUpdatePayload = {
+      id,
+      ...payload,
+    };
+
+    try {
+      await expenseUpdater.mutateAsync(updatePayload);
+      toast({ title: "Expense updated" });
+      await refetchExpenses();
+    } catch (error: unknown) {
+      console.error("Failed to update expense", error);
+      toast({
+        title: "Could not update expense",
+        description: getErrorMessage(error, "Please try again."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleExpenseDelete = async (id: string) => {
+    try {
+      await expenseRemover.mutateAsync(id);
+      toast({ title: "Expense deleted" });
+      await refetchExpenses();
+    } catch (error: unknown) {
+      console.error("Failed to delete expense", error);
+      toast({
+        title: "Could not delete expense",
+        description: getErrorMessage(error, "Please try again."),
+        variant: "destructive",
+      });
+    }
+  };
+
+  const openParam = searchParams.get("open");
+  const openExpenseDialog = openParam === "expenses";
 
   // clear the query param after reading so it doesn't re-open on navigation
   useEffect(() => {
     if (openExpenseDialog) {
       const next = new URLSearchParams(searchParams);
-      next.delete('open');
+      next.delete("open");
       setSearchParams(next, { replace: true });
     }
-  }, [openExpenseDialog]);
+  }, [openExpenseDialog, searchParams, setSearchParams]);
 
   return (
     <div className="min-h-screen gradient-hero">
@@ -300,8 +409,12 @@ const Editor = () => {
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
-              <Button variant="gold" onClick={() => navigate("/onboarding?upgrade=true")}>Upgrade to Pro</Button>
-              <Button variant="outline" onClick={() => navigate("/settings")}>Compare plans</Button>
+              <Button variant="gold" asChild>
+                <UpgradeLink asChild interval="monthly" source="editor_banner">
+                  <span>Upgrade to Pro</span>
+                </UpgradeLink>
+              </Button>
+              <Button variant="outline" onClick={() => navigate("/pricing")}>Compare plans</Button>
             </div>
           </div>
         )}
@@ -354,8 +467,7 @@ const Editor = () => {
         {!isLoading && budgetData && (
           <LineItemImporter
             scenarios={budgetData.scenarios}
-            isProUser={Boolean(budgetData.budget.is_active)}
-            onUpgrade={() => navigate("/onboarding?upgrade=true")}
+            isProUser={isProUser}
             onImport={handleBulkImport}
           />
         )}
@@ -371,42 +483,12 @@ const Editor = () => {
         )}
         {!isLoading && budgetData && (
           <ExpenseManager
-            expenses={useExpenses(budgetData.budget.id).data ?? []}
+            expenses={expenses}
             openNow={openExpenseDialog}
             currency={budgetData.budget.base_currency}
-            onCreate={async (payload) => {
-              try {
-                await expenseCreator.mutateAsync({
-                  ...payload,
-                  budget_id: budgetData.budget.id,
-                  scenario_id: undefined,
-                  user_id: userId ?? "",
-                  created_at: new Date().toISOString(),
-                } as any);
-                toast({ title: "Expense added", description: "Saved to your expense log." });
-              } catch (err: any) {
-                console.error("Failed to add expense", err);
-                toast({ title: "Could not add expense", description: err.message, variant: "destructive" });
-              }
-            }}
-            onUpdate={async (id, payload) => {
-              try {
-                await expenseUpdater.mutateAsync({ id, ...payload } as any);
-                toast({ title: "Expense updated" });
-              } catch (err: any) {
-                console.error("Failed to update expense", err);
-                toast({ title: "Could not update expense", description: err.message, variant: "destructive" });
-              }
-            }}
-            onDelete={async (id) => {
-              try {
-                await expenseRemover.mutateAsync(id as any);
-                toast({ title: "Expense deleted" });
-              } catch (err: any) {
-                console.error("Failed to delete expense", err);
-                toast({ title: "Could not delete expense", description: err.message, variant: "destructive" });
-              }
-            }}
+            onCreate={handleExpenseCreate}
+            onUpdate={handleExpenseUpdate}
+            onDelete={handleExpenseDelete}
             isSubmitting={expenseSubmitting}
           />
         )}
@@ -417,8 +499,7 @@ const Editor = () => {
             lineItems={budgetData.lineItems}
             incomes={budgetData.incomes}
             currency={budgetData.budget.base_currency}
-            isProUser={Boolean(budgetData.budget.is_active)}
-            onUpgrade={() => navigate("/onboarding?upgrade=true")}
+            isProUser={isProUser}
           />
         )}
       </main>

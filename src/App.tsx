@@ -22,6 +22,11 @@ import Pricing from "./pages/Pricing";
 import Claim from "./pages/Claim";
 import Expenses from "./pages/Expenses";
 import FMSA from "./pages/FMSA";
+import PublicFeedbackPage from "./pages/PublicFeedbackPage";
+import { FeatureFlagProvider } from "./components/providers/FeatureFlagProvider";
+import ProofPage from "./pages/ProofPage";
+import FeedbackButton from "./components/feedback/FeedbackButton";
+import FeedbackAdmin from "./pages/FeedbackAdmin";
 
 const queryClient = new QueryClient();
 
@@ -30,29 +35,34 @@ const App = () => (
     <TooltipProvider>
       <Toaster />
       <Sonner />
-      
-      <Router>
 
 
-        <Routes>
-          <Route path="/" element={<Landing />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/dashboard" element={<SeasonDashboard />} />
-          <Route path="/onboarding" element={<Onboarding />} />
-          <Route path="/sheets" element={<Sheets />} />
-          <Route path="/editor" element={<EditorTest />} />
-          <Route path="/budget/:id" element={<BudgetDetail />} />
-          <Route path="/settings" element={<Settings />} />
-          <Route path="/playerx" element={<PlayerX />} />
-          <Route path="/sponsors/tool" element={<SponsorsTool />} />
-          <Route path="/pricing" element={<Pricing />} />
-          <Route path="/claim" element={<Claim />} />
-          <Route path="/expenses" element={<Expenses />} />
-          <Route path="/academy/fmsa" element={<FMSA />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </Router>
+      <FeatureFlagProvider>
+        <Router>
+          <Routes>
+            <Route path="/" element={<Landing />} />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/dashboard" element={<SeasonDashboard />} />
+            <Route path="/onboarding" element={<Onboarding />} />
+            <Route path="/sheets" element={<Sheets />} />
+            <Route path="/editor" element={<EditorTest />} />
+            <Route path="/budget/:id" element={<BudgetDetail />} />
+            <Route path="/settings" element={<Settings />} />
+            <Route path="/playerx" element={<PlayerX />} />
+            <Route path="/sponsors/tool" element={<SponsorsTool />} />
+            <Route path="/pricing" element={<Pricing />} />
+            <Route path="/claim" element={<Claim />} />
+            <Route path="/expenses" element={<Expenses />} />
+            <Route path="/academy/fmsa" element={<FMSA />} />
+            <Route path="/feedback/new" element={<PublicFeedbackPage />} />
+            <Route path="/p/:id" element={<ProofPage />} />
+            <Route path="/admin/feedback" element={<FeedbackAdmin />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </Router>
+        <FeedbackButton />
+      </FeatureFlagProvider>
 
       <Suspense fallback={null}>
         <ChatSupportWidget />

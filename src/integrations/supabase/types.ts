@@ -16,7 +16,11 @@ export type Database = {
           player_level: string | null
           travels_with_coach: boolean | null
           role: "free" | "pro"
+          plan: "free" | "pro"
+          plan_interval: "monthly" | "yearly" | null
+          pro: boolean | null
           country: string | null
+          stripe_customer_id: string | null
           created_at: string
           updated_at: string
         }
@@ -26,7 +30,11 @@ export type Database = {
           player_level?: string | null
           travels_with_coach?: boolean | null
           role?: "free" | "pro"
+          plan?: "free" | "pro"
+          plan_interval?: "monthly" | "yearly" | null
+          pro?: boolean | null
           country?: string | null
+          stripe_customer_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -36,7 +44,11 @@ export type Database = {
           player_level?: string | null
           travels_with_coach?: boolean | null
           role?: "free" | "pro"
+          plan?: "free" | "pro"
+          plan_interval?: "monthly" | "yearly" | null
+          pro?: boolean | null
           country?: string | null
+          stripe_customer_id?: string | null
           created_at?: string
           updated_at?: string
         }
@@ -240,27 +252,60 @@ export type Database = {
       feedback: {
         Row: {
           id: string
+          created_at: string | null
+          role: "player" | "sponsor" | "coach"
           user_id: string | null
-          email: string | null
-          topic: string | null
-          message: string
-          created_at: string
+          prospect_id: string | null
+          activation_id: string | null
+          name: string | null
+          org: string | null
+          title: string | null
+          rating: number | null
+          quote: string
+          media_url: string | null
+          avatar_url: string | null
+          consent_publish: boolean | null
+          tags: string[] | null
+          sentiment: string | null
+          status: "pending" | "approved" | "rejected"
         }
         Insert: {
           id?: string
+          created_at?: string | null
+          role: "player" | "sponsor" | "coach"
           user_id?: string | null
-          email?: string | null
-          topic?: string | null
-          message: string
-          created_at?: string
+          prospect_id?: string | null
+          activation_id?: string | null
+          name?: string | null
+          org?: string | null
+          title?: string | null
+          rating?: number | null
+          quote: string
+          media_url?: string | null
+          avatar_url?: string | null
+          consent_publish?: boolean | null
+          tags?: string[] | null
+          sentiment?: string | null
+          status?: "pending" | "approved" | "rejected"
         }
         Update: {
           id?: string
+          created_at?: string | null
+          role?: "player" | "sponsor" | "coach"
           user_id?: string | null
-          email?: string | null
-          topic?: string | null
-          message?: string
-          created_at?: string
+          prospect_id?: string | null
+          activation_id?: string | null
+          name?: string | null
+          org?: string | null
+          title?: string | null
+          rating?: number | null
+          quote?: string
+          media_url?: string | null
+          avatar_url?: string | null
+          consent_publish?: boolean | null
+          tags?: string[] | null
+          sentiment?: string | null
+          status?: "pending" | "approved" | "rejected"
         }
         Relationships: []
       }
@@ -269,18 +314,39 @@ export type Database = {
           key: string
           enabled: boolean
           release_at: string | null
-          created_at: string
+          updated_at: string | null
         }
         Insert: {
           key: string
           enabled?: boolean
           release_at?: string | null
-          created_at?: string
+          updated_at?: string | null
         }
         Update: {
           key?: string
           enabled?: boolean
           release_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sponsor_asset_events: {
+        Row: {
+          id: string
+          user_id: string | null
+          asset: string
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          user_id?: string | null
+          asset: string
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          user_id?: string | null
+          asset?: string
           created_at?: string
         }
         Relationships: []
@@ -289,6 +355,7 @@ export type Database = {
         Row: {
           slug: string
           title: string
+          description: string | null
           min_tier: Database["public"]["Enums"]["module_tier"]
           release_at: string | null
           created_at: string
@@ -296,6 +363,7 @@ export type Database = {
         Insert: {
           slug: string
           title: string
+          description?: string | null
           min_tier?: Database["public"]["Enums"]["module_tier"]
           release_at?: string | null
           created_at?: string
@@ -303,6 +371,7 @@ export type Database = {
         Update: {
           slug?: string
           title?: string
+          description?: string | null
           min_tier?: Database["public"]["Enums"]["module_tier"]
           release_at?: string | null
           created_at?: string
@@ -343,28 +412,190 @@ export type Database = {
       }
       user_subscriptions: {
         Row: {
-          id: string
           user_id: string
-          status: string
-          current_period_end: string
-          created_at: string
-          updated_at: string
+          stripe_customer_id: string | null
+          stripe_subscription_id: string | null
+          status: "trialing" | "active" | "past_due" | "canceled" | "unpaid"
+          plan: "pro_monthly" | "pro_yearly" | null
+          current_period_end: string | null
+          cancel_at_period_end: boolean | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          user_id: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: "trialing" | "active" | "past_due" | "canceled" | "unpaid"
+          plan?: "pro_monthly" | "pro_yearly" | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          user_id?: string
+          stripe_customer_id?: string | null
+          stripe_subscription_id?: string | null
+          status?: "trialing" | "active" | "past_due" | "canceled" | "unpaid"
+          plan?: "pro_monthly" | "pro_yearly" | null
+          current_period_end?: string | null
+          cancel_at_period_end?: boolean | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      upgrade_events: {
+        Row: {
+          id: string
+          created_at: string | null
+          user_id: string | null
+          source: string
+          interval: "monthly" | "yearly"
         }
         Insert: {
           id?: string
-          user_id: string
-          status: string
-          current_period_end: string
-          created_at?: string
-          updated_at?: string
+          created_at?: string | null
+          user_id?: string | null
+          source: string
+          interval: "monthly" | "yearly"
         }
         Update: {
           id?: string
-          user_id?: string
+          created_at?: string | null
+          user_id?: string | null
+          source?: string
+          interval?: "monthly" | "yearly"
+        }
+        Relationships: []
+      }
+      checkout_sessions: {
+        Row: {
+          id: string
+          created_at: string | null
+          updated_at: string | null
+          user_id: string | null
+          session_id: string
+          plan: string | null
+          interval: "monthly" | "yearly"
+          plan_interval: "monthly" | "yearly" | null
+          status: string
+          payment_status: string | null
+          completed_at: string | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          session_id: string
+          plan?: string | null
+          interval: "monthly" | "yearly"
+          plan_interval?: "monthly" | "yearly" | null
           status?: string
-          current_period_end?: string
-          created_at?: string
-          updated_at?: string
+          payment_status?: string | null
+          completed_at?: string | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+          session_id?: string
+          plan?: string | null
+          interval?: "monthly" | "yearly"
+          plan_interval?: "monthly" | "yearly" | null
+          status?: string
+          payment_status?: string | null
+          completed_at?: string | null
+          error?: string | null
+        }
+        Relationships: []
+      }
+      user_flags: {
+        Row: {
+          user_id: string
+          pro_annual_trial_eligible: boolean | null
+        }
+        Insert: {
+          user_id: string
+          pro_annual_trial_eligible?: boolean | null
+        }
+        Update: {
+          user_id?: string
+          pro_annual_trial_eligible?: boolean | null
+        }
+        Relationships: []
+      }
+      feedback_tokens: {
+        Row: {
+          id: string
+          feedback_id: string | null
+          token: string
+          expires_at: string
+          used: boolean | null
+        }
+        Insert: {
+          id?: string
+          feedback_id?: string | null
+          token: string
+          expires_at: string
+          used?: boolean | null
+        }
+        Update: {
+          id?: string
+          feedback_id?: string | null
+          token?: string
+          expires_at?: string
+          used?: boolean | null
+        }
+        Relationships: []
+      }
+      homepage_stats: {
+        Row: {
+          id: number
+          updated_at: string | null
+          total_activations: number | null
+          total_qr_scans: number | null
+          total_redemptions: number | null
+          avg_time_to_first_sponsor: number | null
+          rolling_30d_testimonials: number | null
+        }
+        Insert: {
+          id?: number
+          updated_at?: string | null
+          total_activations?: number | null
+          total_qr_scans?: number | null
+          total_redemptions?: number | null
+          avg_time_to_first_sponsor?: number | null
+          rolling_30d_testimonials?: number | null
+        }
+        Update: {
+          id?: number
+          updated_at?: string | null
+          total_activations?: number | null
+          total_qr_scans?: number | null
+          total_redemptions?: number | null
+          avg_time_to_first_sponsor?: number | null
+          rolling_30d_testimonials?: number | null
+        }
+        Relationships: []
+      }
+      ab_flags: {
+        Row: {
+          key: string
+          variant: string
+        }
+        Insert: {
+          key: string
+          variant: string
+        }
+        Update: {
+          key?: string
+          variant?: string
         }
         Relationships: []
       }

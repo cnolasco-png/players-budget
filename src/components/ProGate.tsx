@@ -1,6 +1,7 @@
 import { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { usePro } from "@/hooks/usePro";
+import UpgradeLink from "@/components/UpgradeLink";
 
 export default function ProGate({ children }: { children: ReactNode }) {
   const { isPro, loading } = usePro();
@@ -14,7 +15,11 @@ export default function ProGate({ children }: { children: ReactNode }) {
         The Sponsor Deck & 7-Day Action Plan are available on <span className="font-medium">Pro</span>.
       </p>
       <div className="flex items-center justify-center gap-3">
-        <Button asChild><a href="/#/pricing">Upgrade to Pro</a></Button>
+        <Button asChild>
+          <UpgradeLink asChild interval="monthly" source="progate">
+            <span>Upgrade to Pro</span>
+          </UpgradeLink>
+        </Button>
         <Button variant="outline" asChild><a href="/#/auth">Sign in</a></Button>
       </div>
     </div>

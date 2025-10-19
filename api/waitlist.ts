@@ -1,4 +1,6 @@
-import { createClient } from '@supabase/supabase-js';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
+import { createClient, type PostgrestError } from '@supabase/supabase-js';
+import type { Database } from '../src/integrations/supabase/types';
 
 const SUPABASE_URL = process.env.SUPABASE_URL ?? process.env.VITE_SUPABASE_URL;
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -61,7 +63,7 @@ function checkRateLimit(ip: string): { allowed: boolean; resetTime?: number } {
 /**
  * Get client IP address from request
  */
-function getClientIP(req: any): string {
+function getClientIP(req: VercelRequest): string {
   // Try various headers that might contain the real IP
   const forwarded = req.headers['x-forwarded-for'];
   const realIP = req.headers['x-real-ip'];
@@ -81,7 +83,8 @@ function getClientIP(req: any): string {
   }
   
   // Fallback to connection remote address
-  return req.connection?.remoteAddress || req.socket?.remoteAddress || 'unknown';
+  const socket = req.socket as { remoteAddress?: string } | undefined;
+  return socket?.remoteAddress ?? 'unknown';
 }
 
 /**
@@ -91,7 +94,15 @@ function getClientIP(req: any): string {
  * Rate-limit by IP 10/min (lightweight in-memory fallback, with TODO for Upstash).
  * Method GET should 405.
  */
-export const handler = async (req: any, res: any) => {
+type WaitlistPayload = {
+  moduleSlug?: unknown;
+  email?: unknown;
+};
+
+type WaitlistRow = Database['public']['Tables']['waitlist_signups']['Row'];
+type CourseModuleRow = Database['public']['Tables']['course_modules']['Row'];
+
+export const handler = async (req: VercelRequest, res: VercelResponse) => {
   // Handle GET method with 405
   if (req.method === 'GET') {
     res.status(405).json({ 
@@ -127,7 +138,8 @@ export const handler = async (req: any, res: any) => {
     }
 
     // Parse request body
-    const { moduleSlug, email } = req.body || {};
+    const bodyRaw = typeof req.body === 'string' ? (req.body.length ? JSON.parse(req.body) : {}) : req.body ?? {};
+    const { moduleSlug, email } = bodyRaw as WaitlistPayload;
 
     // Basic validation
     if (!moduleSlug || typeof moduleSlug !== 'string') {
@@ -146,8 +158,27 @@ export const handler = async (req: any, res: any) => {
       return;
     }
 
+    const moduleSlugValue = moduleSlug.trim();
+    const emailValue = email.trim().toLowerCase();
+
+    if (!moduleSlugValue.length) {
+      res.status(400).json({
+        ok: false,
+        error: 'moduleSlug must not be empty'
+      });
+      return;
+    }
+
+    if (!emailValue.length) {
+      res.status(400).json({
+        ok: false,
+        error: 'email must not be empty'
+      });
+      return;
+    }
+
     // Email validation
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(emailValue)) {
       res.status(400).json({
         ok: false, 
         error: 'Please provide a valid email address' 
@@ -164,7 +195,7 @@ export const handler = async (req: any, res: any) => {
     }
 
     // Create server-side Supabase client for secure operations
-    const supabaseServer = createClient(
+    const supabaseServer = createClient<Database>(
       SUPABASE_URL,
       SUPABASE_SERVICE_ROLE_KEY,
       {
@@ -186,7 +217,7 @@ export const handler = async (req: any, res: any) => {
         
         if (SUPABASE_ANON_KEY) {
           // Create client-side supabase instance to verify token
-          const supabaseClient = createClient(
+          const supabaseClient = createClient<Database>(
             SUPABASE_URL,
             SUPABASE_ANON_KEY
           );
@@ -206,8 +237,8 @@ export const handler = async (req: any, res: any) => {
     const { data: moduleExists, error: moduleError } = await supabaseServer
       .from('course_modules')
       .select('slug')
-      .eq('slug', moduleSlug)
-      .single();
+      .eq('slug', moduleSlugValue)
+      .single<CourseModuleRow>();
 
     if (moduleError || !moduleExists) {
       res.status(400).json({
@@ -221,11 +252,11 @@ export const handler = async (req: any, res: any) => {
     const { data: existingSignup, error: checkError } = await supabaseServer
       .from('waitlist_signups')
       .select('id')
-      .eq('module_slug', moduleSlug)
-      .eq('email', email.toLowerCase())
-      .single();
+      .eq('module_slug', moduleSlugValue)
+      .eq('email', emailValue)
+      .single<Pick<WaitlistRow, 'id'>>();
 
-    if (checkError && checkError.code !== 'PGRST116') { // PGRST116 = no rows found
+    if (checkError && (checkError as PostgrestError).code !== 'PGRST116') { // PGRST116 = no rows found
       console.error('Database error checking existing signup:', checkError);
       res.status(500).json({
         ok: false, 
@@ -246,14 +277,14 @@ export const handler = async (req: any, res: any) => {
     const { data: insertData, error: insertError } = await supabaseServer
       .from('waitlist_signups')
       .insert({
-        module_slug: moduleSlug,
-        email: email.toLowerCase(),
+        module_slug: moduleSlugValue,
+        email: emailValue,
         user_id: userId
       })
       .select('id')
-      .single();
+      .single<Pick<WaitlistRow, 'id'>>();
 
-    if (insertError) {
+    if (insertError || !insertData) {
       console.error('Database error inserting waitlist signup:', insertError);
       res.status(500).json({
         ok: false, 

@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import "@/styles/globals.css";
 import { Toaster } from "@/components/ui/toaster";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const metadata = {
   title: "The Fifth Slam",
   description: "Season-first tennis finance",

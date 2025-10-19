@@ -1,4 +1,5 @@
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
 
 export type ForecastRow = {
   month: string; // YYYY-MM
@@ -7,7 +8,12 @@ export type ForecastRow = {
   net: number;
 };
 
-function toNumber(v: any): number {
+type ExpenseAmountRow = Pick<Database["public"]["Tables"]["expense_entries"]["Row"], "amount">;
+type IncomeAmountRow = Pick<Database["public"]["Tables"]["income_sources"]["Row"], "amount_monthly">;
+type LineItemCostRow = Pick<Database["public"]["Tables"]["line_items"]["Row"], "qty" | "unit_cost">;
+type BudgetRow = Pick<Database["public"]["Tables"]["budgets"]["Row"], "contingency_pct" | "tax_pct">;
+
+function toNumber(v: unknown): number {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
 }
@@ -32,7 +38,8 @@ export async function sumExpensesMTD(budgetId: string, now = new Date()): Promis
     .lt("date", next);
 
   if (error) throw error;
-  return (data ?? []).reduce((s: number, row: any) => s + toNumber(row.amount), 0);
+  const rows = (data ?? []) as ExpenseAmountRow[];
+  return rows.reduce((sum, row) => sum + toNumber(row.amount), 0);
 }
 
 export async function sumIncomeMTD(budgetId: string, taxPct = 0): Promise<number> {
@@ -43,7 +50,8 @@ export async function sumIncomeMTD(budgetId: string, taxPct = 0): Promise<number
     .eq("budget_id", budgetId);
 
   if (error) throw error;
-  const total = (data ?? []).reduce((s: number, r: any) => s + toNumber(r.amount_monthly), 0);
+  const rows = (data ?? []) as IncomeAmountRow[];
+  const total = rows.reduce((sum, row) => sum + toNumber(row.amount_monthly), 0);
   const rate = toNumber(taxPct) / 100;
   return total * (1 - rate);
 }
@@ -58,14 +66,15 @@ export async function planMonthlyCost(budgetId: string, scenarioId: string): Pro
 
   if (error) throw error;
 
-  const base = (items ?? []).reduce((s: number, it: any) => s + toNumber(it.qty ?? 1) * toNumber(it.unit_cost), 0);
+  const itemRows = (items ?? []) as LineItemCostRow[];
+  const base = itemRows.reduce((sum, item) => sum + toNumber(item.qty ?? 1) * toNumber(item.unit_cost), 0);
 
   // fetch budget to read contingency
   const { data: budgetRows, error: bErr } = await supabase
     .from("budgets")
     .select("contingency_pct")
     .eq("id", budgetId)
-    .maybeSingle();
+    .maybeSingle<Pick<BudgetRow, "contingency_pct">>();
 
   if (bErr) throw bErr;
   const contingency = budgetRows?.contingency_pct ?? 0;
@@ -89,7 +98,11 @@ export async function forecastToYearEnd(budgetId: string, scenarioId: string, no
   const months = projectMonthsRemaining(year, now);
 
   // fetch tax_pct from budget
-  const { data: budgetRows } = await supabase.from("budgets").select("tax_pct").eq("id", budgetId).maybeSingle();
+  const { data: budgetRows } = await supabase
+    .from("budgets")
+    .select("tax_pct")
+    .eq("id", budgetId)
+    .maybeSingle<Pick<BudgetRow, "tax_pct">>();
   const taxPct = budgetRows?.tax_pct ?? 0;
 
   const plannedCost = await planMonthlyCost(budgetId, scenarioId);

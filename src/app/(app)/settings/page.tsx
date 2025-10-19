@@ -3,6 +3,7 @@ import React from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
+// eslint-disable-next-line react-refresh/only-export-components
 export const metadata = { title: "Settings" };
 
 export default function SettingsPage() {

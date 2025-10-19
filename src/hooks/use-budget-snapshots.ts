@@ -89,15 +89,17 @@ async function createBudgetSnapshot(input: CreateSnapshotInput) {
     incomes,
   };
 
-  const { error } = await supabase.from("budget_snapshots").insert({
+  const snapshotRecord = {
     budget_id: budget.id,
     user_id: budget.user_id,
     note: note?.trim() || null,
-    snapshot_data: payload as any,
-    scenario_totals: scenarioTotals as any,
+    snapshot_data: payload,
+    scenario_totals: scenarioTotals,
     spend_total: spendTotal,
     income_total: incomeTotal,
-  });
+  } satisfies Database["public"]["Tables"]["budget_snapshots"]["Insert"];
+
+  const { error } = await supabase.from("budget_snapshots").insert(snapshotRecord);
 
   if (error) throw error;
 }

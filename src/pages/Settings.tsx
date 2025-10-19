@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import UpgradeLink from "@/components/UpgradeLink";
 import { formatCurrency } from "@/lib/budgetCalculations";
 import { getEffectiveTaxPct } from "@/lib/tax";
 import { Loader2, LogOut, Settings as SettingsIcon, ExternalLink } from "lucide-react";
@@ -20,7 +21,7 @@ const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 // Prefer generated insert type for `feedback` table (from supabase types)
 type FeedbackInsert = Database["public"]["Tables"]["feedback"]["Insert"];
 
-type ExpenseEntryRecord = any;
+type ExpenseEntryRecord = Database["public"]["Tables"]["expense_entries"]["Row"];
 
 type BudgetSummary = {
   id: string;
@@ -45,6 +46,7 @@ const Settings = () => {
     travelsWithCoach: false,
     plan: "free",
   });
+  const [portalLoading, setPortalLoading] = useState(false);
 
   // New: local plan stored in localStorage (free | pro)
   const [localPlan, setLocalPlan] = useState<'free' | 'pro'>(() => {
@@ -120,11 +122,12 @@ const Settings = () => {
         plan: profileData?.role ?? "free",
       });
       setProfileRetry(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load profile", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Unable to load profile",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: `${message}. Check your internet connection and try again.`,
         variant: "destructive",
       });
       setProfileRetry(true);
@@ -165,11 +168,12 @@ const Settings = () => {
           };
         });
       }
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load budgets", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Unable to load budgets",
-        description: `${error.message}. Try refreshing the page.`,
+        description: `${message}. Try refreshing the page.`,
         variant: "destructive",
       });
     }
@@ -191,11 +195,12 @@ const Settings = () => {
       }
 
       setExpenseEntries(data ?? []);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to load expenses", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Unable to load expenses",
-        description: `${error.message}. Try refreshing the page.`,
+        description: `${message}. Try refreshing the page.`,
         variant: "destructive",
       });
     } finally {
@@ -259,11 +264,12 @@ const Settings = () => {
         description: "Your preferences have been saved.",
       });
       setProfileRetry(false);
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to update profile", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Update failed",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: `${message}. Check your internet connection and try again.`,
         variant: "destructive",
       });
       setProfileRetry(true);
@@ -272,7 +278,7 @@ const Settings = () => {
     }
   };
 
-  const handleManageBilling = () => {
+  const handleManageBilling = async () => {
     if (!isProPlan) {
       toast({
         title: "Upgrade required",
@@ -280,25 +286,33 @@ const Settings = () => {
       });
       return;
     }
-    const portalUrl = import.meta.env.VITE_STRIPE_PORTAL_URL;
-    if (!portalUrl) {
+
+    try {
+      setPortalLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth?next=/settings");
+        return;
+      }
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const body = await response.json();
+      if (!response.ok || !body?.url) throw new Error(body?.error || "Unable to open billing portal");
+      window.location.href = body.url;
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Please try again later.";
       toast({
         title: "Portal unavailable",
-        description: "Set VITE_STRIPE_PORTAL_URL to enable billing management.",
+        description: message,
         variant: "destructive",
       });
-      return;
+    } finally {
+      setPortalLoading(false);
     }
-    window.open(portalUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const handleUpgrade = () => {
-    const checkoutUrl = import.meta.env.VITE_STRIPE_CHECKOUT_URL;
-    if (checkoutUrl) {
-      window.open(checkoutUrl, "_blank", "noopener,noreferrer");
-      return;
-    }
-    navigate("/onboarding?upgrade=true");
   };
 
   const handleLaunchPlayerX = () => {
@@ -384,13 +398,13 @@ const Settings = () => {
           notes: expenseForm.note.trim() ? expenseForm.note.trim() : null,
         })
         .select()
-        .single();
+        .single<ExpenseEntryRecord>();
 
       if (error) {
         throw error;
       }
 
-      const newEntry = data as ExpenseEntryRecord;
+      const newEntry = data;
       setExpenseEntries((prev) => [newEntry, ...prev].slice(0, 10));
       toast({
         title: "Expense logged",
@@ -402,11 +416,12 @@ const Settings = () => {
         amount: "",
         note: "",
       }));
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to log expense", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Could not log expense",
-        description: `${error.message}. Check your connection and try again.`,
+        description: `${message}. Check your connection and try again.`,
         variant: "destructive",
       });
     } finally {
@@ -426,16 +441,25 @@ const Settings = () => {
 
     setFeedbackState((prev) => ({ ...prev, submitting: true }));
     setFeedbackRetry(false);
+    const trimmedMessage = feedbackState.message.trim();
+    const trimmedEmail = feedbackState.email.trim();
+    const trimmedTopic = feedbackState.topic.trim();
+
+    const metadataTags = [
+      trimmedTopic ? `topic:${trimmedTopic}` : null,
+      trimmedEmail ? `contact:${trimmedEmail}` : null,
+    ].filter(Boolean) as string[];
+
     const payload: FeedbackInsert = {
-      message: feedbackState.message.trim(),
-      email: feedbackState.email.trim() || null,
-      topic: feedbackState.topic.trim() || null,
-      user_id: userId,
+      user_id: userId ?? null,
+      role: "player",
+      quote: trimmedMessage,
+      consent_publish: false,
+      tags: metadataTags.length ? metadataTags : null,
     };
 
     try {
-      // Cast the payload to any if types are missing — keeps the supabase client typed when possible
-      const { error } = await supabase.from("feedback").insert(payload as any);
+      const { error } = await supabase.from("feedback").insert(payload);
 
       if (error) {
         throw error;
@@ -444,9 +468,9 @@ const Settings = () => {
       try {
         await supabase.functions.invoke("send-support-email", {
           body: {
-            topic: payload.topic ?? undefined,
-            message: payload.message,
-            replyTo: payload.email,
+            topic: trimmedTopic || undefined,
+            message: trimmedMessage,
+            replyTo: trimmedEmail || undefined,
             userId,
             userEmail,
           },
@@ -462,11 +486,12 @@ const Settings = () => {
       setFeedbackRetry(false);
       setFeedbackState({ topic: "", message: "", email: "", submitting: false });
       return;
-    } catch (error: any) {
+    } catch (error) {
       console.error("Failed to submit feedback", error);
+      const message = error instanceof Error ? error.message : "Unknown error";
       toast({
         title: "Could not send feedback",
-        description: `${error.message}. Check your internet connection and try again.`,
+        description: `${message}. Check your internet connection and try again.`,
         variant: "destructive",
       });
       setFeedbackRetry(true);
@@ -598,10 +623,14 @@ const Settings = () => {
               <p className="text-xl font-semibold">{planLabel}</p>
             </div>
             <div className="flex flex-wrap gap-3">
-              <Button variant="outline" onClick={handleManageBilling}>
-                Manage billing
+              <Button variant="outline" onClick={handleManageBilling} disabled={portalLoading}>
+                {portalLoading ? "Opening portal..." : "Manage billing"}
               </Button>
-              <Button variant="gold" onClick={handleUpgrade}>Upgrade to Pro</Button>
+              <Button variant="gold" asChild>
+                <UpgradeLink asChild interval="monthly" source="settings_page_cta">
+                  <span>Upgrade to Pro</span>
+                </UpgradeLink>
+              </Button>
             </div>
           </div>
         </Card>

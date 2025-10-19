@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
+import type { User } from "@supabase/supabase-js";
 
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -13,6 +14,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { useToast } from "@/hooks/use-toast";
+import { getErrorMessage } from "@/lib/errors";
 import { TrendingUp, ArrowRight, ArrowLeft, Check, Loader2 } from "lucide-react";
 
 const COUNTRIES = [
@@ -42,7 +44,7 @@ const profileSchema = z.object({
 
 const Onboarding = () => {
   const [step, setStep] = useState(1);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(false);
   const [shouldRetryOnboarding, setShouldRetryOnboarding] = useState(false);
 
@@ -262,12 +264,13 @@ const Onboarding = () => {
       });
 
       navigate("/dashboard");
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Error creating budget:", error);
+      const description = `${getErrorMessage(error, "Something went wrong")}. Check your internet connection and try again.`;
 
       toast({
         title: "Error creating budget",
-        description: `${error.message ?? "Something went wrong"}. Check your internet connection and try again.`,
+        description,
         variant: "destructive",
       });
       setShouldRetryOnboarding(true);

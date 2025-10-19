@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { calculateScenarioTotals, formatCurrency } from "@/lib/budgetCalculations";
 import type { LineItemRecord, ScenarioRecord } from "@/hooks/use-budget-data";
 import type { ScenarioTotal } from "@/lib/budgetCalculations";
+import UpgradeLink from "@/components/UpgradeLink";
 
 interface ScenarioSandboxProps {
   scenarios: ScenarioRecord[];
@@ -12,7 +13,6 @@ interface ScenarioSandboxProps {
   scenarioTotals: ScenarioTotal[];
   currency?: string | null;
   isProUser: boolean;
-  onUpgrade?: () => void;
 }
 
 const ScenarioSandbox = ({
@@ -21,7 +21,6 @@ const ScenarioSandbox = ({
   scenarioTotals,
   currency = "USD",
   isProUser,
-  onUpgrade,
 }: ScenarioSandboxProps) => {
   const [extraTournaments, setExtraTournaments] = useState(0);
   const [expenseShift, setExpenseShift] = useState(0);
@@ -58,8 +57,10 @@ const ScenarioSandbox = ({
           </p>
         </div>
         {!isProUser && (
-          <Button variant="gold" onClick={onUpgrade}>
-            Unlock forecasting
+          <Button variant="gold" asChild>
+            <UpgradeLink interval="monthly" source="gated_feature_sandbox" className="inline-flex items-center gap-2">
+              Unlock forecasting
+            </UpgradeLink>
           </Button>
         )}
       </div>

@@ -9,6 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { LogOut, Settings as SettingsIcon, Loader2, ExternalLink, MessageCircle } from "lucide-react";
+import UpgradeLink from "@/components/UpgradeLink";
+import { getErrorMessage } from "@/lib/errors";
 
 const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 
@@ -61,11 +63,12 @@ const Settings = () => {
         travelsWithCoach: Boolean(profileData?.travels_with_coach),
         plan: profileData?.role ?? "free",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to load profile", error);
+      const description = `${getErrorMessage(error, "Check your connection and try again.")}`;
       toast({
         title: "Unable to load profile",
-        description: `${error.message}. Check your connection and try again.`,
+        description,
         variant: "destructive",
       });
     } finally {
@@ -96,11 +99,12 @@ const Settings = () => {
         title: "Profile updated",
         description: "Your preferences have been saved.",
       });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Failed to update profile", error);
+      const description = `${getErrorMessage(error, "Check your connection and try again.")}`;
       toast({
         title: "Update failed",
-        description: `${error.message}. Check your connection and try again.`,
+        description,
         variant: "destructive",
       });
     } finally {
@@ -123,20 +127,35 @@ const Settings = () => {
   const planLabel = profile.plan === "pro" ? "Pro" : profile.plan === "premium" ? "Premium" : "Free";
   const isProPlan = profile.plan === "pro" || profile.plan === "premium";
 
-  const handleUpgradeMonthly = () => {
-    const monthlyUrl = "https://buy.stripe.com/00w4gz1hC9kh0kS6TqbfO04";
-    window.open(monthlyUrl, "_blank", "noopener,noreferrer");
-  };
+  const [portalLoading, setPortalLoading] = useState(false);
 
-  const handleUpgradeYearly = () => {
-    const yearlyUrl = "https://buy.stripe.com/5kQ4gz1hCeEB8RofpWbfO05";
-    window.open(yearlyUrl, "_blank", "noopener,noreferrer");
-  };
-
-  const handleManageBilling = () => {
-    // Use environment variable or fallback to placeholder  
-    const stripePortalUrl = import.meta.env.VITE_STRIPE_BILLING_PORTAL_URL || "https://billing.stripe.com/p/login/your-portal-link";
-    window.open(stripePortalUrl, "_blank", "noopener,noreferrer");
+  const handleManageBilling = async () => {
+    try {
+      setPortalLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        navigate("/auth?next=/settings");
+        return;
+      }
+      const response = await fetch("/api/stripe/portal", {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
+        },
+      });
+      const body = await response.json();
+      if (!response.ok || !body?.url) throw new Error(body?.error || "Unable to open billing portal");
+      window.location.href = body.url;
+    } catch (error: unknown) {
+      const description = getErrorMessage(error, "Please try again later.");
+      toast({
+        title: "Billing portal unavailable",
+        description,
+        variant: "destructive",
+      });
+    } finally {
+      setPortalLoading(false);
+    }
   };
 
   return (
@@ -241,9 +260,9 @@ const Settings = () => {
                 <p className="text-2xl font-bold tracking-tight">{planLabel} Player</p>
               </div>
               <div className="flex flex-wrap gap-3">
-                <Button variant="outline" onClick={handleManageBilling} className="shadow-sm">
+                <Button variant="outline" onClick={handleManageBilling} disabled={portalLoading} className="shadow-sm">
                   <ExternalLink className="mr-2 h-4 w-4" />
-                  Manage Membership
+                  {portalLoading ? "Opening portal..." : "Manage Membership"}
                 </Button>
               </div>
             </div>
@@ -257,13 +276,21 @@ const Settings = () => {
                     <span className="text-muted-foreground/70"> • International players continue with free access until EU launch.</span>
                   </p>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <Button variant="gold" onClick={handleUpgradeMonthly} className="justify-between h-12 shadow-lg font-medium">
-                      <span>Monthly Membership</span>
-                      <ExternalLink className="ml-2 h-4 w-4" />
+                    <Button variant="gold" asChild className="justify-between h-12 shadow-lg font-medium">
+                      <UpgradeLink asChild interval="monthly" source="settings_clean_monthly">
+                        <span className="w-full flex items-center justify-between">
+                          <span>Monthly Membership</span>
+                          <ExternalLink className="ml-2 h-4 w-4" />
+                        </span>
+                      </UpgradeLink>
                     </Button>
-                    <Button variant="gold" onClick={handleUpgradeYearly} className="justify-between h-12 shadow-lg font-medium">
-                      <span>Annual Membership</span>
-                      <ExternalLink className="ml-2 h-4 w-4" />
+                    <Button variant="gold" asChild className="justify-between h-12 shadow-lg font-medium">
+                      <UpgradeLink asChild interval="yearly" source="settings_clean_yearly">
+                        <span className="w-full flex items-center justify-between">
+                          <span>Annual Membership</span>
+                          <ExternalLink className="ml-2 h-4 w-4" />
+                        </span>
+                      </UpgradeLink>
                     </Button>
                   </div>
                 </div>

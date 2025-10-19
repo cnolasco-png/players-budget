@@ -26,7 +26,9 @@ export async function getEffectiveTaxPct(country: string, level: 'ITF' | 'Challe
     const pct = json?.pct ?? null;
     try {
       localStorage.setItem(key, JSON.stringify({ ts: Date.now(), pct }));
-    } catch (e) {}
+    } catch (error) {
+      console.debug("tax cache write failed", error);
+    }
     if (pct == null) return fallbackPct ?? 0;
     return Number(pct);
   } catch (e) {

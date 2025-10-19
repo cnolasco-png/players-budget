@@ -113,6 +113,7 @@ async function syncSubscription(
   }
 
   const plan = derivePlan(subscription);
+  const planInterval = plan === 'pro_yearly' ? 'yearly' : plan === 'pro_monthly' ? 'monthly' : null;
   const primaryItem = subscription.items?.data?.[0];
   const currentPeriodEndUnix = primaryItem?.current_period_end ?? null;
   const currentPeriodEnd = currentPeriodEndUnix
@@ -137,9 +138,21 @@ async function syncSubscription(
   }
 
   const nextPlan = determineProfilePlan(subscription.status);
+  const profileUpdate: Record<string, unknown> = {
+    plan: nextPlan,
+    role: nextPlan,
+    pro: nextPlan === 'pro',
+    plan_interval: nextPlan === 'pro' ? planInterval : null,
+    updated_at: new Date().toISOString(),
+  };
+
+  if (customerId) {
+    profileUpdate.stripe_customer_id = customerId;
+  }
+
   const { error: profileError } = await supabaseAdmin
     .from('profiles')
-    .update({ plan: nextPlan })
+    .update(profileUpdate)
     .eq('id', userId);
 
   if (profileError) {
@@ -176,7 +189,39 @@ async function handleCheckoutSessionCompleted(session: Stripe.Checkout.Session) 
     expand: ['items.data.price.product'],
   });
 
+  const subscriptionPlan = derivePlan(subscription);
+
   await syncSubscription(subscription, { userId, customerId });
+
+  if (supabaseAdmin) {
+    const metadataInterval = (session.metadata?.interval as string | undefined) ?? undefined;
+    const fallbackInterval =
+      subscriptionPlan === 'pro_yearly' ? 'yearly' : subscriptionPlan === 'pro_monthly' ? 'monthly' : null;
+    const normalizedInterval =
+      metadataInterval === 'yearly'
+        ? 'yearly'
+        : metadataInterval === 'monthly'
+        ? 'monthly'
+        : fallbackInterval;
+    const planValue = (session.metadata?.plan as string | undefined) ?? 'pro';
+    const completedAt = new Date().toISOString();
+
+    const { error: checkoutUpdateError } = await supabaseAdmin
+      .from('checkout_sessions')
+      .update({
+        status: session.status ?? 'completed',
+        payment_status: session.payment_status ?? null,
+        plan: planValue,
+        plan_interval: normalizedInterval,
+        completed_at: completedAt,
+        error: session.payment_status === 'unpaid' ? 'payment_unpaid' : null,
+      })
+      .eq('session_id', session.id ?? '');
+
+    if (checkoutUpdateError) {
+      throw new Error(`Failed to update checkout session: ${checkoutUpdateError.message}`);
+    }
+  }
 }
 
 async function handleSubscriptionEvent(subscription: Stripe.Subscription) {

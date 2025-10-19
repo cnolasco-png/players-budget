@@ -225,12 +225,15 @@ function scoreAssessment(answers: AssessmentAnswers) {
 async function logEvent(asset: string) {
   try {
     const { data: { user } } = await supabase.auth.getUser();
-    await (supabase as any)
+    const { error } = await supabase
       .from("sponsor_asset_events")
       .insert({
         asset,
         user_id: user?.id ?? null,
       });
+    if (error) {
+      console.warn("logEvent insert failed", error);
+    }
   } catch (error) {
     console.warn("logEvent failed", error);
   }

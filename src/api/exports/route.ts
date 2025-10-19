@@ -2,11 +2,28 @@
 // Handles CSV exports and ZIP archives for receipts
 
 import { supabase } from "@/integrations/supabase/client";
+import type { Database } from "@/integrations/supabase/types";
+
+type LineItemRow = Database["public"]["Tables"]["line_items"]["Row"];
+type BudgetRow = Database["public"]["Tables"]["budgets"]["Row"];
+
+type SeasonExportItem = {
+  created_at: string | null;
+  label: string | null;
+  category: string | null;
+  type: string;
+  unit_cost: number | null;
+  currency: string | null;
+  scenario_name: string;
+  tournament?: string | null;
+  location?: string | null;
+  notes: string | null;
+};
 
 /**
  * Generate CSV content from season line items
  */
-function generateSeasonCSV(lineItems: any[], seasonTitle: string): string {
+function generateSeasonCSV(lineItems: SeasonExportItem[], seasonTitle: string): string {
   const headers = [
     'Date',
     'Description', 
@@ -54,7 +71,7 @@ export async function exportSeasonCSV(seasonId: string): Promise<Blob> {
       .from('budgets')
       .select('title, season_year')
       .eq('id', seasonId)
-      .single();
+      .single<Pick<BudgetRow, "title" | "season_year">>();
 
     if (budgetError) throw budgetError;
 
@@ -67,11 +84,12 @@ export async function exportSeasonCSV(seasonId: string): Promise<Blob> {
     if (itemsError) throw itemsError;
 
     // Transform data for CSV
-    const transformedItems = (lineItems || []).map(item => ({
+    const transformedItems: SeasonExportItem[] = (lineItems ?? []).map((item: LineItemRow) => ({
       ...item,
       scenario_name: '', // Scenario name not available in this query
       category: item.category_id || 'misc',
-      type: 'expense' // Default type - adjust based on your schema
+      type: 'expense', // Default type - adjust based on your schema
+      notes: item.note,
     }));
 
     const seasonTitle = `${budgetData.title} (${budgetData.season_year})`;
