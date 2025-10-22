@@ -854,12 +854,17 @@ export default function FinancialMindsetStrategyAccelerator() {
       <section className="space-y-8">
         {dayModules.map((module) => {
           const slug = module.slug as DaySlug;
-          const dayState = course.state[slug];
-          const fieldDefs = COURSE_FIELD_DEFS[slug];
-          const locked = !(dayState?.unlocked ?? false);
-          const completed = dayState?.completed ?? false;
+          const dayState = course.state?.[slug] ?? {
+            unlocked: false,
+            completed: false,
+            fields: {},
+            completedAt: null,
+          };
+          const fieldDefs = COURSE_FIELD_DEFS[slug] ?? [];
+          const locked = !dayState.unlocked;
+          const completed = dayState.completed;
           const canComplete = course.canMarkComplete(slug);
-          const completedAt = dayState?.completedAt;
+          const completedAt = dayState.completedAt;
 
           return (
             <Card key={slug} id={slug} className="relative rounded-2xl border shadow-sm">

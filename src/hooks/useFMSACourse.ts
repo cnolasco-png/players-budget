@@ -233,6 +233,9 @@ const loadState = (): CourseState => {
         parsed[slug] = defaults[slug];
         return;
       }
+      if (!existing.fields || typeof existing.fields !== "object") {
+        existing.fields = {} as Record<string, string>;
+      }
       fieldDefs.forEach((field) => {
         if (!(field.id in existing.fields)) {
           existing.fields[field.id] = defaultFields[field.id];
