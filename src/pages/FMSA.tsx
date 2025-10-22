@@ -1,13 +1,20 @@
 import { Fragment } from "react";
+import type { ReactNode, ChangeEvent } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppTopBar } from "@/components/layout/AppTopBar";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import { useFMSACourse, COURSE_FIELD_DEFS, type DaySlug } from "@/hooks/useFMSACourse";
+import FMSAPreworkBuilder from "@/components/academy/FMSAPreworkBuilder";
 
 type RichSection = {
   title: string;
-  body: React.ReactNode;
+  body: ReactNode;
 };
 
 const summarySections: RichSection[] = [
@@ -82,9 +89,18 @@ const stressTriggers = [
   },
 ];
 
-const dayModules = [
+const dayModules: Array<{
+  slug: DaySlug;
+  label: string;
+  title: string;
+  outcome: string;
+  lesson: ReactNode;
+  drills: ReactNode;
+  actions: ReactNode;
+  deliverables?: ReactNode;
+}> = [
   {
-    id: "day1",
+    slug: "day1",
     label: "Day 1",
     title: "Identity, Vision & Money Rules",
     outcome: "Align identity with long-term wealth behaviors; define success beyond ranking.",
@@ -184,7 +200,7 @@ const dayModules = [
     ),
   },
   {
-    id: "day2",
+    slug: "day2",
     label: "Day 2",
     title: "Income Engine & Opportunity Map",
     outcome: "Design a diversified income stack so you’re not at the mercy of one tournament or one country.",
@@ -380,7 +396,7 @@ const dayModules = [
     ),
   },
   {
-    id: "day3",
+    slug: "day3",
     label: "Day 3",
     title: "Cost Architecture & Tour Budget",
     outcome: "Know exactly what it costs to compete well in each region and travel mode.",
@@ -416,7 +432,7 @@ const dayModules = [
     ),
   },
   {
-    id: "day4",
+    slug: "day4",
     label: "Day 4",
     title: "Cashflow, Runway & Tournament ROI Rules",
     outcome: "Install decision systems that protect your downside and compound your upside.",
@@ -452,7 +468,7 @@ const dayModules = [
     ),
   },
   {
-    id: "day5",
+    slug: "day5",
     label: "Day 5",
     title: "Risk, Tax, Compliance & Protection (Global)",
     outcome: "Reduce avoidable surprises across borders.",
@@ -488,7 +504,7 @@ const dayModules = [
     ),
   },
   {
-    id: "day6",
+    slug: "day6",
     label: "Day 6",
     title: "Investing, Wealth Plan & Post-Career Arc",
     outcome: "Set the compounding flywheel now, not later.",
@@ -734,6 +750,7 @@ const expandedLessons: RichSection[] = [
 ];
 
 export default function FinancialMindsetStrategyAccelerator() {
+  const course = useFMSACourse();
   return (
     <div className="min-h-screen bg-primary">
       <AppTopBar title="Academy" subtitle="Financial Mindset & Strategy Accelerator — Tennis" />
@@ -808,221 +825,152 @@ export default function FinancialMindsetStrategyAccelerator() {
         </Card>
       </section>
 
-      <section className="space-y-6">
+            <section className="space-y-6">
         <Card>
           <CardHeader>
             <CardTitle className="text-lg font-semibold">Pre-Work (Complete before Day 1)</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6 text-sm leading-relaxed">
+          <CardContent className="space-y-4 text-sm leading-relaxed">
             <p>
-              <strong>Objective:</strong> Capture your starting line — “By completing your free assessment.” Do this once,
-              in one sitting (20–30 minutes). Keep it simple; numbers can be rounded. You’ll refine later.
+              <strong>Objective:</strong> Capture your starting line inside the app. Use the builder below to log cash,
+              obligations, schedule, income, beliefs and stress triggers. Everything autosaves locally and can be
+              exported for your vault.
             </p>
-            <div className="space-y-4">
-              <h4 className="font-semibold">Step 1) Baseline Snapshot</h4>
-              <div className="space-y-3">
-                <div>
-                  <p className="font-semibold">A) Cash on hand (by currency)</p>
-                  <p className="text-muted-foreground">
-                    List every account or wallet with today’s balance. Format: Account / Currency / Balance / Notes
-                  </p>
-                  <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                    <li>Revolut / EUR / €1,240 / travel pot</li>
-                    <li>Chase Checking / USD / $2,180 / living</li>
-                    <li>Cash / MXN / $3,200 / last swing</li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold">B) Debts &amp; loans</p>
-                  <p className="text-muted-foreground">
-                    Record each with APR and monthly payment. Format: Type / Lender / Balance / APR / Monthly / End Date
-                  </p>
-                  <ul className="list-disc space-y-1 pl-5 text-muted-foreground">
-                    <li>Credit card / Amex / $1,150 / 24.9% / $85 / —</li>
-                    <li>Travel loan / Local bank / €2,700 / 8.5% / €98 / 2027-06</li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="font-semibold">C) Monthly fixed costs</p>
-                  <p className="text-muted-foreground">
-                    Housing, phone, insurance, subscriptions, storage, gym, car/metro pass, coaching retainers.
-                  </p>
-                  <p className="text-muted-foreground">
-                    Example: Housing $650 • Phone $40 • Insurance $110 • Subscriptions $28 • Gym $25 →{" "}
-                    <strong>Fixed = $853/mo</strong>
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">D) Variable spend (tour)</p>
-                  <p className="text-muted-foreground">
-                    Food, transport, stringing, physio/massage, laundry, practice courts, visas, misc. Use heuristics (e.g.,
-                    meals €18–28 in EU, stringing $12–25 ITF/Challenger, physio $30–90).
-                  </p>
-                </div>
-                <div>
-                  <p className="font-semibold">E) Current season schedule</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          {["Month", "Region", "Target Events", "Priority", "Travel Notes"].map((header) => (
-                            <th key={header} className="px-3 py-2 text-left font-medium">
-                              {header}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["Feb", "Spain (EU)", "2× W15", "B", "share apt, cook"],
-                          ["Mar", "USA (NA)", "1× W25 + 1 league wknd", "A", "clinic on off-day"],
-                        ].map((row, index) => (
-                          <tr key={index} className="border-t">
-                            {row.map((value, columnIndex) => (
-                              <td key={columnIndex} className="px-3 py-2">
-                                {value}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-                <div>
-                  <p className="font-semibold">F) Income over the last 12 months</p>
-                  <div className="overflow-x-auto rounded-lg border">
-                    <table className="w-full text-sm">
-                      <thead className="bg-muted">
-                        <tr>
-                          {["Stream", "Gross", "Withholding / Fees", "Net"].map((header) => (
-                            <th key={header} className="px-3 py-2 text-left font-medium">
-                              {header}
-                            </th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {[
-                          ["Prize Money", "$4,200", "$420", "$3,780"],
-                          ["Clinics (12)", "$3,000", "$120", "$2,880"],
-                          ["Sponsor (retainer)", "$1,200", "—", "$1,200"],
-                        ].map((row, index) => (
-                          <tr key={index} className="border-t">
-                            {row.map((value, columnIndex) => (
-                              <td key={columnIndex} className="px-3 py-2">
-                                {value}
-                              </td>
-                            ))}
-                          </tr>
-                        ))}
-                        <tr className="border-t font-semibold">
-                          <td className="px-3 py-2">Total</td>
-                          <td className="px-3 py-2">$8,400</td>
-                          <td className="px-3 py-2">$540</td>
-                          <td className="px-3 py-2">$7,860</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="font-semibold">Step 2) Mindset Inventory</h4>
-              <div className="space-y-3">
-                <p className="font-semibold">Top 5 money beliefs — helpful vs. unhelpful (with reframes)</p>
-                <ul className="space-y-2">
-                  {mindsetBeliefs.map(({ unhelpful, reframe, helpful }, index) => (
-                    <li key={index} className="rounded-lg border bg-muted/30 p-3">
-                      {helpful ? (
-                        <span className="block font-medium text-emerald-700">Helpful: {helpful}</span>
-                      ) : (
-                        <>
-                          <span className="block font-medium text-destructive">Unhelpful: {unhelpful}</span>
-                          <span className="block text-sm text-muted-foreground">Reframe: {reframe}</span>
-                        </>
-                      )}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <p className="font-semibold">Money role models &amp; how the wealthy spot opportunities</p>
-                <ul className="list-disc space-y-1 pl-5">
-                  <li>Optionality first: maintain runway to reject bad EV trips and accept asymmetric upsides.</li>
-                  <li>Arbitrage mindset: geo arbitrage, FX buffers, convert when rates favor you.</li>
-                  <li>Asset builder’s lens: turn knowledge into repeatable assets (rate cards, sponsor kits, services).</li>
-                  <li>Distribution &gt; talent: build mailing lists and club relationships to monetize every swing.</li>
-                  <li>Second-order thinking: weigh fatigue, visa, and networking effects—not just prize money.</li>
-                  <li>Systems, not willpower: automations, checklists, default calendars.</li>
-                </ul>
-              </div>
-
-              <div className="space-y-3">
-                <p className="font-semibold">Stress triggers (identify yours + pre-plan response)</p>
-                <div className="space-y-3">
-                  {stressTriggers.map(({ trigger, response }) => (
-                    <div key={trigger} className="rounded-lg border bg-muted/30 p-3 text-sm">
-                      <p className="font-medium text-destructive">Trigger: {trigger}</p>
-                      <p className="text-muted-foreground">Response: {response}</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h4 className="font-semibold">Step 3) Download your assessment</h4>
-              <p>
-                Generate a one-page <strong>Starting Line</strong> summary from your tool of choice and download your
-                assessment (PDF/CSV/JSON). Store it in your athlete vault—it becomes the baseline for Day 1.
-              </p>
-              <p>
-                <strong>Contents:</strong> balances by currency, debts, fixed/variable totals, 90-day schedule, last-12-month income, top 5 beliefs, role models, stress triggers.
-              </p>
-            </div>
+            <ul className="list-disc space-y-2 pl-5 text-muted-foreground">
+              <li>Use the forms to add accounts, debts, fixed costs, variable notes and planned schedule.</li>
+              <li>Record last-12-month income, belief reframes and stress responses. Totals update automatically.</li>
+              <li>Export the starting-line summary (TXT or JSON) and upload it to your course workspace before Day 1.</li>
+            </ul>
+            <p className="text-xs text-muted-foreground">
+              Tip: numbers can be rounded. Pre-work should take 20–30 minutes in one sitting.
+            </p>
           </CardContent>
         </Card>
+        <FMSAPreworkBuilder />
       </section>
 
       <Separator />
 
       <section className="space-y-8">
-        {dayModules.map((module) => (
-          <Card key={module.id} id={module.id}>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-xl font-semibold">
-                    {module.label} — {module.title}
-                  </CardTitle>
-                  <p className="mt-2 text-sm text-muted-foreground">{module.outcome}</p>
+        {dayModules.map((module) => {
+          const slug = module.slug as DaySlug;
+          const dayState = course.state[slug];
+          const fieldDefs = COURSE_FIELD_DEFS[slug];
+          const locked = !(dayState?.unlocked ?? false);
+          const completed = dayState?.completed ?? false;
+          const canComplete = course.canMarkComplete(slug);
+          const completedAt = dayState?.completedAt;
+
+          return (
+            <Card key={slug} id={slug} className="relative rounded-2xl border shadow-sm">
+              {locked ? (
+                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center rounded-2xl bg-background/85 backdrop-blur">
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Unlock this module by completing the previous day.
+                  </p>
                 </div>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-6 text-sm leading-relaxed">
-              <div className="space-y-2">
-                <p className="font-semibold uppercase tracking-wide text-muted-foreground">Lesson</p>
-                <div className="space-y-4 text-muted-foreground">{module.lesson}</div>
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold uppercase tracking-wide text-muted-foreground">Drills</p>
-                <div className="space-y-4 text-muted-foreground">{module.drills}</div>
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold uppercase tracking-wide text-muted-foreground">In-App Actions</p>
-                <div className="space-y-4 text-muted-foreground">{module.actions}</div>
-              </div>
-              <div className="space-y-2">
-                <p className="font-semibold uppercase tracking-wide text-muted-foreground">Deliverables</p>
-                <div className="space-y-4 text-muted-foreground">{module.deliverables}</div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              ) : null}
+
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-xl font-semibold">
+                      {module.label} — {module.title}
+                    </CardTitle>
+                    <p className="mt-2 text-sm text-muted-foreground">{module.outcome}</p>
+                  </div>
+                  {completed ? (
+                    <Badge className="bg-emerald-600 text-emerald-50">Completed</Badge>
+                  ) : (
+                    <Badge variant="outline">In progress</Badge>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="space-y-6 text-sm leading-relaxed">
+                <div className="space-y-2">
+                  <p className="font-semibold uppercase tracking-wide text-muted-foreground">Lesson</p>
+                  <div className="space-y-4 text-muted-foreground">{module.lesson}</div>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold uppercase tracking-wide text-muted-foreground">Drills</p>
+                  <div className="space-y-4 text-muted-foreground">{module.drills}</div>
+                </div>
+                <div className="space-y-2">
+                  <p className="font-semibold uppercase tracking-wide text-muted-foreground">In-App Actions</p>
+                  <div className="space-y-4 text-muted-foreground">{module.actions}</div>
+                </div>
+
+                <div className="space-y-3">
+                  <p className="font-semibold uppercase tracking-wide text-muted-foreground">Workbook</p>
+                  <div className="space-y-4">
+                    {fieldDefs.map((field) => {
+                      const value = dayState?.fields[field.id] ?? "";
+                      const onChange = (event: ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
+                        course.updateField(slug, field.id, event.target.value);
+                      const disabled = locked;
+
+                      return (
+                        <div key={field.id} className="space-y-2">
+                          <Label className="text-xs uppercase tracking-wide text-muted-foreground">
+                            {field.label}
+                            {field.required ? <span className="ml-1 text-destructive">*</span> : null}
+                          </Label>
+                          {field.type === "textarea" ? (
+                            <Textarea
+                              value={value}
+                              onChange={onChange}
+                              placeholder={field.placeholder}
+                              disabled={disabled}
+                              rows={field.helper ? 4 : 3}
+                            />
+                          ) : (
+                            <Input
+                              type={field.type === "number" ? "number" : field.type === "url" ? "url" : "text"}
+                              value={value}
+                              onChange={onChange}
+                              placeholder={field.placeholder}
+                              disabled={disabled}
+                            />
+                          )}
+                          {field.helper ? (
+                            <p className="text-xs text-muted-foreground">{field.helper}</p>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Entries autosave to this device. Complete to unlock the next day.
+                  </p>
+                </div>
+              </CardContent>
+
+              <CardFooter className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <Button
+                    onClick={() => course.markComplete(slug)}
+                    disabled={locked || completed || !canComplete}
+                  >
+                    {completed ? "Completed" : "Mark day complete"}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => course.resetDay(slug)}
+                    disabled={locked}
+                  >
+                    Reset day
+                  </Button>
+                </div>
+                {completedAt ? (
+                  <p className="text-xs text-muted-foreground">
+                    Completed {new Date(completedAt).toLocaleString()}
+                  </p>
+                ) : null}
+              </CardFooter>
+            </Card>
+          );
+        })}
       </section>
 
       <Separator />
