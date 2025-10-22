@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { 
-  TrendingUp, LogOut, Plus, Settings, Plane, Bed, Utensils, Car, 
+  TrendingUp, Plus, Plane, Bed, Utensils, Car, 
   Trophy, Users, Zap, Lock, Camera, FileText, Target, DollarSign, 
   Clock, AlertTriangle, Calendar, MapPin, ChartPie, Edit3, Save, X, Crown
 } from "lucide-react";
@@ -43,6 +43,7 @@ import "../api/ocr"; // Initialize OCR mock
 import "../api/exports/route"; // Initialize export endpoints
 import type { User } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
+import { AppTopBar } from "@/components/layout/AppTopBar";
 
 // Types
 interface SeasonData {
@@ -243,11 +244,6 @@ const SeasonDashboard = () => {
 
 
 
-  const handleSignOut = async () => {
-    await supabase.auth.signOut();
-    navigate("/");
-  };
-
   const handleAddExpense = (expense: { amount: number; description: string; category: string; date: string }) => {
     // In a real app, this would save to the database
     console.log('Adding expense:', expense);
@@ -370,74 +366,7 @@ const SeasonDashboard = () => {
 
   return (
     <div className="min-h-screen bg-primary">
-      {/* Combined Header with Navigation */}
-      <header className="bg-primary/90 border-b border-primary/70 sticky top-0 z-10">
-        {/* Navigation */}
-        <div className="bg-primary border-b border-primary/70">
-          <div className="max-w-7xl mx-auto px-6 py-3">
-            <nav className="flex gap-6">
-              <button 
-                onClick={() => navigate('/dashboard')} 
-                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/dashboard' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
-              >
-                Dashboard
-              </button>
-              <button 
-                onClick={() => navigate('/academy/fmsa')} 
-                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/academy/fmsa' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
-              >
-                Academy
-              </button>
-              <button 
-                onClick={() => navigate('/sponsors/tool')} 
-                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/sponsors/tool' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
-              >
-                Sponsors
-              </button>
-              <button 
-                onClick={() => navigate('/pricing')} 
-                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/pricing' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
-              >
-                Pricing
-              </button>
-              <button 
-                onClick={() => navigate('/settings')} 
-                className={`text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-primary ${location.pathname === '/settings' ? 'text-secondary border-b-2 border-secondary pb-2' : 'text-primary-foreground/70 hover:text-secondary'}`}
-              >
-                Settings
-              </button>
-            </nav>
-          </div>
-        </div>
-        
-        {/* Page Title and Actions */}
-        <div className="max-w-7xl mx-auto px-6 py-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-3xl font-bold text-primary-foreground">{getCurrentPageName()}</h1>
-              <p className="text-primary-foreground/70 mt-1">Season 2025 • 10.3 months completed</p>
-            </div>
-            <div className="flex items-center gap-3">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => navigate("/settings")}
-                className="text-primary-foreground/70 hover:text-secondary hover:bg-primary/70 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <Settings className="w-5 h-5" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleSignOut}
-                className="text-primary-foreground/70 hover:text-secondary hover:bg-primary/70 focus-visible:ring-2 focus-visible:ring-primary"
-              >
-                <LogOut className="w-5 h-5" />
-              </Button>
-            </div>
-          </div>
-        </div>
-      </header>
+      <AppTopBar title={getCurrentPageName()} subtitle="Season 2025 • 10.3 months completed" />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8 space-y-8 bg-background rounded-t-3xl mt-4">

@@ -1,14 +1,17 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DownloadCloud, Loader2 } from "lucide-react";
-import type { Activation, Profile, Prospect, SponsorAsset } from "@/hooks/useSponsorsData";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import type { Activation, Profile, Prospect, SponsorAsset, SponsorCampaign } from "@/hooks/useSponsorsData";
 
 type SponsorPackGeneratorProps = {
   profile: Profile;
   assets: SponsorAsset[];
   prospects: Prospect[];
   activations: Activation[];
+  campaigns: SponsorCampaign[];
 };
 
 const theme = {
@@ -16,7 +19,13 @@ const theme = {
   accent: "#f4a261",
 };
 
-function buildPackSummary(profile: Profile, assets: SponsorAsset[], prospects: Prospect[], activations: Activation[]) {
+function buildPackSummary(
+  profile: Profile,
+  assets: SponsorAsset[],
+  prospects: Prospect[],
+  activations: Activation[],
+  campaign?: SponsorCampaign,
+) {
   const testimonials = assets.filter((asset) => asset.type === "testimonial").map((asset) => `• ${asset.label}`);
   const activationsPlanned = profile.activationIdeas.slice(0, 4).map((idea) => `• ${idea}`);
   const pipelineSummary = prospects
@@ -34,11 +43,18 @@ function buildPackSummary(profile: Profile, assets: SponsorAsset[], prospects: P
     activationsPlanned,
     pipelineSummary,
     activationMetrics,
+    campaign,
   };
 }
 
-function generatePdf(profile: Profile, assets: SponsorAsset[], prospects: Prospect[], activations: Activation[]) {
-  const summary = buildPackSummary(profile, assets, prospects, activations);
+function generatePdf(
+  profile: Profile,
+  assets: SponsorAsset[],
+  prospects: Prospect[],
+  activations: Activation[],
+  campaign?: SponsorCampaign,
+) {
+  const summary = buildPackSummary(profile, assets, prospects, activations, campaign);
 
   const lines = [
     `Sponsor Pack — ${profile.name}`,
@@ -65,6 +81,17 @@ function generatePdf(profile: Profile, assets: SponsorAsset[], prospects: Prospe
     "Starter: $1.5k — 1 activation/month + QR tracking",
     "Growth: $3k — 2 activations + 5 clips + reporting",
     "Local Hero: $5k — 3 activations + school visit + reporting",
+    "",
+    summary.campaign
+      ? `Featured campaign — ${summary.campaign.name}`
+      : "Upgrade this page with a campaign from your library.",
+    summary.campaign ? `Objective: ${summary.campaign.objective}` : "",
+    summary.campaign ? `Target: ${summary.campaign.targetSegment}` : "",
+    summary.campaign ? `Offer: ${summary.campaign.offerSummary}` : "",
+    summary.campaign ? `Deliverables:\n${summary.campaign.deliverables.map((item) => `• ${item}`).join("\n")}` : "",
+    summary.campaign ? `Timeline: ${summary.campaign.timeline}` : "",
+    summary.campaign ? `Investment: ${summary.campaign.investment}` : "",
+    summary.campaign && summary.campaign.notes ? `Notes: ${summary.campaign.notes}` : "",
     "",
     "7) Tracking & reporting",
     "• QR scans, redemptions, signups",
@@ -118,8 +145,14 @@ function generatePdf(profile: Profile, assets: SponsorAsset[], prospects: Prospe
   return new Blob([encoder.encode(pdf)], { type: "application/pdf" });
 }
 
-function generatePptx(profile: Profile, assets: SponsorAsset[], prospects: Prospect[], activations: Activation[]) {
-  const summary = buildPackSummary(profile, assets, prospects, activations);
+function generatePptx(
+  profile: Profile,
+  assets: SponsorAsset[],
+  prospects: Prospect[],
+  activations: Activation[],
+  campaign?: SponsorCampaign,
+) {
+  const summary = buildPackSummary(profile, assets, prospects, activations, campaign);
   const pptContent = [
     `Slide 1 — Cover`,
     `${profile.name} | ${profile.ranking}`,
@@ -142,6 +175,15 @@ function generatePptx(profile: Profile, assets: SponsorAsset[], prospects: Prosp
     `Slide 6 — Packages & Pricing`,
     "Starter | Growth | Local Hero (customize pricing)",
     "",
+    summary.campaign ? `Slide 7 — Featured Campaign: ${summary.campaign.name}` : `Slide 7 — Featured Campaign` ,
+    summary.campaign ? `Objective: ${summary.campaign.objective}` : "Add campaign objective",
+    summary.campaign ? `Target: ${summary.campaign.targetSegment}` : "Set target segment",
+    summary.campaign ? `Offer: ${summary.campaign.offerSummary}` : "Outline your offer",
+    summary.campaign ? `Deliverables:\n${summary.campaign.deliverables.map((item) => `• ${item}`).join("\n")}` : "",
+    summary.campaign ? `Timeline: ${summary.campaign.timeline}` : "",
+    summary.campaign ? `Investment: ${summary.campaign.investment}` : "",
+    summary.campaign && summary.campaign.notes ? `Notes: ${summary.campaign.notes}` : "",
+    "",
     `Slide 7 — Tracking & Reporting`,
     summary.activationMetrics.join("\n") || "Add tracking snapshots.",
     "",
@@ -154,14 +196,20 @@ function generatePptx(profile: Profile, assets: SponsorAsset[], prospects: Prosp
   return new Blob([pptContent], { type: "text/plain" });
 }
 
-export function SponsorPackGenerator({ profile, assets, prospects, activations }: SponsorPackGeneratorProps) {
+export function SponsorPackGenerator({ profile, assets, prospects, activations, campaigns }: SponsorPackGeneratorProps) {
   const [loading, setLoading] = useState(false);
+  const [selectedCampaignId, setSelectedCampaignId] = useState<string>(campaigns[0]?.id ?? "none");
+
+  const activeCampaign = useMemo(
+    () => campaigns.find((campaign) => campaign.id === selectedCampaignId),
+    [campaigns, selectedCampaignId],
+  );
 
   const handleGenerate = async () => {
     try {
       setLoading(true);
-      const pdfBlob = generatePdf(profile, assets, prospects, activations);
-      const pptBlob = generatePptx(profile, assets, prospects, activations);
+      const pdfBlob = generatePdf(profile, assets, prospects, activations, activeCampaign);
+      const pptBlob = generatePptx(profile, assets, prospects, activations, activeCampaign);
 
       const pdfUrl = URL.createObjectURL(pdfBlob);
       const pptUrl = URL.createObjectURL(pptBlob);
@@ -198,6 +246,37 @@ export function SponsorPackGenerator({ profile, assets, prospects, activations }
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4 text-sm text-muted-foreground">
+          {campaigns.length ? (
+            <div className="space-y-2">
+              <Label className="text-xs uppercase tracking-wide text-muted-foreground">Featured Campaign</Label>
+              <Select value={selectedCampaignId} onValueChange={setSelectedCampaignId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Choose a campaign" />
+                </SelectTrigger>
+                <SelectContent>
+                  {campaigns.map((campaign) => (
+                    <SelectItem key={campaign.id} value={campaign.id}>
+                      {campaign.name}
+                    </SelectItem>
+                  ))}
+                  <SelectItem value="none">No campaign — general pack</SelectItem>
+                </SelectContent>
+              </Select>
+              {activeCampaign ? (
+                <p className="text-xs text-muted-foreground">
+                  Will highlight “{activeCampaign.name}” with objective “{activeCampaign.objective}”.
+                </p>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  Select a campaign to highlight in the deck. Create or edit campaigns below.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Create your first campaign below to personalize this pack with a ready-to-run activation offer.
+            </p>
+          )}
           <p>
             The pack includes: cover, bio, schedule, activation menu, proof, packages, tracking and contact info. Update
             your assets and metrics above before generating.

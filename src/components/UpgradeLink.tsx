@@ -47,13 +47,33 @@ export default function UpgradeLink({ interval = "monthly", source, className, c
       });
 
       if (!response.ok) {
-        const { error } = await response.json();
-        throw new Error(error || "Unable to start checkout");
+        let errorMessage = "Unable to start checkout";
+        try {
+          const data = await response.json();
+          if (typeof data?.error === "string" && data.error.trim().length > 0) {
+            errorMessage = data.error;
+          }
+        } catch {
+          const text = await response.text();
+          if (text) {
+            errorMessage = text.slice(0, 180);
+          }
+        }
+        throw new Error(errorMessage);
       }
 
-      const { url } = await response.json();
-      if (url) {
-        window.location.href = url;
+      let checkoutUrl: string | null = null;
+      try {
+        const data = await response.json();
+        checkoutUrl = typeof data?.url === "string" ? data.url : null;
+      } catch {
+        // Fallback to plain text in case the API returned a bare URL
+        const text = await response.text();
+        checkoutUrl = text?.startsWith("http") ? text : null;
+      }
+
+      if (checkoutUrl) {
+        window.location.href = checkoutUrl;
       } else {
         throw new Error("Missing checkout URL");
       }

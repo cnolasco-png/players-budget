@@ -8,9 +8,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
-import { LogOut, Settings as SettingsIcon, Loader2, ExternalLink, MessageCircle } from "lucide-react";
+import { LogOut, Loader2, ExternalLink, MessageCircle } from "lucide-react";
 import UpgradeLink from "@/components/UpgradeLink";
 import { getErrorMessage } from "@/lib/errors";
+import { AppTopBar } from "@/components/layout/AppTopBar";
 
 const PLAYER_LEVELS = ["Junior", "College", "ITF", "Challenger", "ATP-WTA"];
 
@@ -159,25 +160,15 @@ const Settings = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-800 via-emerald-700 to-green-900">
-      <header className="border-b bg-card/80 backdrop-blur-md shadow-sm">
-        <div className="container mx-auto max-w-5xl px-6 py-8 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-gradient-to-br from-emerald-600 to-green-700 text-white shadow-lg ring-2 ring-emerald-500/20">
-              <SettingsIcon className="h-7 w-7" />
-            </div>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">Court Settings</h1>
-              <p className="text-base text-muted-foreground">Fine-tune your tennis journey preferences</p>
-            </div>
+    <div className="min-h-screen bg-primary">
+      <AppTopBar title="Settings" subtitle="Fine-tune your tennis journey preferences" />
+      <div className="bg-gradient-to-br from-green-800 via-emerald-700 to-green-900 pb-12">
+        <main className="container mx-auto max-w-5xl px-6 py-10 space-y-10">
+          <div className="flex justify-end">
+            <Button variant="outline" onClick={() => navigate(-1)} className="shadow-sm">
+              <LogOut className="mr-2 h-4 w-4" />Back to Court
+            </Button>
           </div>
-          <Button variant="outline" onClick={() => navigate(-1)} className="shadow-sm">
-            <LogOut className="mr-2 h-4 w-4" />Back to Court
-          </Button>
-        </div>
-      </header>
-
-      <main className="container mx-auto max-w-5xl px-6 py-10 space-y-10">
         <Card className="p-8 shadow-lg border-0 bg-card/95 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -320,7 +311,8 @@ const Settings = () => {
             </div>
           </div>
         </Card>
-      </main>
+        </main>
+      </div>
     </div>
   );
 };

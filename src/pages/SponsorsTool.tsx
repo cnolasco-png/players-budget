@@ -9,6 +9,8 @@ import SponsorPackGenerator from "@/components/sponsors/SponsorPackGenerator";
 import DealsBoard from "@/components/sponsors/DealsBoard";
 import ActivationMetrics from "@/components/sponsors/ActivationMetrics";
 import ActivationSurveyForm from "@/components/feedback/ActivationSurveyForm";
+import SponsorCampaignManager from "@/components/sponsors/SponsorCampaignManager";
+import { AppTopBar } from "@/components/layout/AppTopBar";
 
 export default function SponsorsTool() {
 	const { toast } = useToast();
@@ -25,8 +27,11 @@ export default function SponsorsTool() {
 	};
 
 	return (
-		<div className="max-w-6xl mx-auto px-4 py-10 space-y-8">
-			<DashboardTop
+		<div className="min-h-screen bg-primary">
+			<AppTopBar title="Sponsors" subtitle="Build repeatable sponsor revenue and elite activation systems" />
+
+			<main className="mx-auto max-w-6xl space-y-8 px-4 py-10">
+				<DashboardTop
 				packCompletion={data.packCompletion}
 				checklist={data.checklist}
 				meetings={data.meetings}
@@ -43,7 +48,7 @@ export default function SponsorsTool() {
 				prospects={data.prospects}
 			/>
 
-			<OutreachKits
+				<OutreachKits
 				isPro={isPro}
 				loading={proLoading}
 				activeSegment={activeSegment}
@@ -57,8 +62,8 @@ export default function SponsorsTool() {
 				}
 			/>
 
-			<div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
-				<ReadinessAssessment
+				<div className="grid gap-6 lg:grid-cols-[1.05fr,0.95fr]">
+					<ReadinessAssessment
 					onCreateTasks={(tasks) => {
 						tasks.forEach((task) => handleCreateTask(task.title, task.dueDate));
 						toast({
@@ -72,28 +77,51 @@ export default function SponsorsTool() {
 					assets={data.assets}
 					prospects={data.prospects}
 					activations={data.activations}
+					campaigns={data.campaigns}
 				/>
 			</div>
 
-			<DealsBoard
-				prospects={data.prospects}
-				onStageChange={(id, stage) => {
-					data.updateProspectStage(id, stage);
-					toast({ title: "Stage updated", description: `${stage} selected for this partner.` });
-				}}
-			/>
+				<DealsBoard
+					prospects={data.prospects}
+					onStageChange={(id, stage) => {
+						data.updateProspectStage(id, stage);
+						toast({ title: "Stage updated", description: `${stage} selected for this partner.` });
+					}}
+					onUpdateProspect={data.updateProspect}
+					onCreateProspect={data.createProspect}
+					onDeleteProspect={data.deleteProspect}
+					onExport={() => data.exportProspects()}
+				/>
 
-			<ActivationMetrics activations={data.activations} />
+				<ActivationMetrics
+					activations={data.activations}
+					prospects={data.prospects}
+					onCreateActivation={data.addActivation}
+					onUpdateActivation={data.updateActivation}
+					onDeleteActivation={data.deleteActivation}
+					onExport={data.exportActivations}
+				/>
 
-			<ActivationSurveyForm
-				prospectId={data.prospects[0]?.id ?? ""}
-				onComplete={() => {
-					toast({
-						title: "Activation survey saved",
-						description: "Metrics logged and feedback queued for review.",
-					});
-				}}
-			/>
+				<ActivationSurveyForm
+					prospects={data.prospects}
+					defaultProspectId={data.prospects[0]?.id}
+					onRecordActivation={(activation) => data.addActivation(activation)}
+					onComplete={() => {
+						toast({
+							title: "Activation survey saved",
+							description: "Metrics logged and feedback queued for review.",
+						});
+					}}
+				/>
+
+				<SponsorCampaignManager
+					campaigns={data.campaigns}
+					onCreate={(input) => data.createCampaign(input)}
+					onUpdate={data.updateCampaign}
+					onDelete={data.deleteCampaign}
+					onDuplicate={(id) => data.duplicateCampaign(id)}
+				/>
+			</main>
 		</div>
 	);
 }

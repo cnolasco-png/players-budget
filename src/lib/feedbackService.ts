@@ -22,22 +22,54 @@ export type FeedbackPayload = {
 };
 
 export async function submitFeedback(payload: FeedbackPayload) {
-  const { error } = await supabase.from("feedback").insert({
-    role: payload.role,
-    rating: payload.rating,
-    quote: payload.quote,
-    name: payload.consentName ? payload.name : null,
-    org: payload.consentOrg ? payload.org : null,
-    title: payload.title,
-    media_url: payload.mediaUrl,
-    avatar_url: payload.avatarUrl,
-    consent_publish: payload.consentPublish,
-    user_id: payload.userId,
-    prospect_id: payload.prospectId,
-    activation_id: payload.activationId,
-    tags: payload.mainWin ? [payload.mainWin] : [],
-  });
-  if (error) throw error;
+  try {
+    const response = await fetch("/api/feedback", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (response.ok) {
+      return;
+    }
+
+    const data = (await response.json().catch(() => ({}))) as { error?: string };
+    const message = data?.error ?? `Feedback submission failed (${response.status})`;
+    const httpError = new Error(message);
+    httpError.name = "FeedbackHttpError";
+    throw httpError;
+  } catch (error) {
+    if (error instanceof Error && error.name === "FeedbackHttpError") {
+      throw error;
+    }
+
+    // Fallback to direct Supabase insert (useful in local dev when API route may not be available)
+    const { error: supabaseError } = await supabase.from("feedback").insert({
+      role: payload.role,
+      rating: payload.rating,
+      quote: payload.quote,
+      name: payload.consentName ? payload.name : null,
+      org: payload.consentOrg ? payload.org : null,
+      title: payload.title,
+      media_url: payload.mediaUrl,
+      avatar_url: payload.avatarUrl,
+      consent_publish: payload.consentPublish,
+      user_id: payload.userId,
+      prospect_id: payload.prospectId,
+      activation_id: payload.activationId,
+      tags: payload.mainWin ? [payload.mainWin] : [],
+    });
+
+    if (supabaseError) {
+      // Throw the original fetch error if available, otherwise the Supabase error
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw supabaseError;
+    }
+  }
 }
 
 export type ActivationSurveyPayload = {
