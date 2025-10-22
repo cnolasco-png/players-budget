@@ -2,7 +2,7 @@ import { Fragment } from "react";
 import type { ReactNode, ChangeEvent } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { AppTopBar } from "@/components/layout/AppTopBar";
 import { Button } from "@/components/ui/button";
